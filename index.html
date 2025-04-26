@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blob Merge - Multiplayer Ball Game</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="game-header">
+        <h1 class="game-title">Blob-Bomber</h1>
+    </header>
+    
+    <!-- Player Name Dialog -->
+    <div id="player-dialog" class="dialog-overlay">
+        <div class="dialog-content">
+            <h2>Enter Ya Name To Play</h2>
+            <!-- Update the input element in the player-dialog -->
+<input type="text" id="player-name-input" placeholder="Ya Name" maxlength="12" pattern="[A-Za-z]+" title="Letters only please">
+            <button id="start-game-btn">PLAY</button>
+        </div>
+    </div>
+
+    <div class="game-container">
+        <div class="scoreboard">
+            <div class="player-name">Player: <span id="player-name-display">Player</span></div>
+            <div class="score">Score: <span id="player-score">0</span></div>
+            <div class="players-left">Players: <span id="players-left">10</span></div>
+            <div class="game-time">Time: <span id="game-time">00:00</span></div>
+            <div class="fps">FPS: <span id="fps-display">60</span></div>
+        </div>
+        
+        <!-- Leaderboard -->
+        <div class="leaderboard">
+            <h3>Leaderboard</h3>
+            <ul id="leaderboard-list">
+                <!-- Will be filled dynamically -->
+            </ul>
+        </div>
+        
+        <canvas id="gameCanvas" width="1600" height="800"></canvas>
+    </div>
+    <div class="controls-info">
+        <p>Use arrow keys or mouse/trackpad to control your ball</p>
+    </div>
+    
+    <script src="js/sounds/sound.js"></script>
+    <script src="js/ball.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/bot.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
+
+    <!-- Game Over Dialog -->
+    <div id="game-over-dialog" class="dialog-overlay" style="display: none;">
+        <div class="dialog-content game-over-content">
+            <h2 id="game-over-title">Game Over</h2>
+            <div id="game-over-message"></div>
+            <div class="final-rankings">
+                <h3>Final Rankings</h3>
+                <ul id="final-rankings-list"></ul>
+            </div>
+            <button id="play-again-btn">Play Again</button>
+        </div>
+    </div>
+</body>
+</html>
