@@ -1,23 +1,33 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blob Merge - Multiplayer Ball Game</title>
+    <title>Blobs Away</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <header class="game-header">
-        <h1 class="game-title">Blob-Bomber</h1>
+        <h1 class="game-title">Blobs Away</h1>
     </header>
     
     <!-- Player Name Dialog -->
     <div id="player-dialog" class="dialog-overlay">
         <div class="dialog-content">
+            <div class="game-logo">
+                <!-- Replace static image with canvas -->
+                <canvas id="logo-canvas" width="300" height="150"></canvas>
+            </div>
             <h2>Enter Ya Name To Play</h2>
             <!-- Update the input element in the player-dialog -->
-<input type="text" id="player-name-input" placeholder="Ya Name" maxlength="12" pattern="[A-Za-z]+" title="Letters only please">
-            <button id="start-game-btn">PLAY</button>
+            <input type="text" id="player-name-input" placeholder="Ya Name" maxlength="12" pattern="[A-Za-z]+" title="Letters only please">
+            <div><button id="start-game-btn">PLAY</button></div>
+        <!-- Controls info as a separate div after dialog-content -->
+            <div class="instruction">Use Ye Trackpad or Arrow Keys</div>
+            <div class="instruction">Eat Other Blobs</div>
+            <div class="instruction">Get Bigger & Fabber</div>
+            <div class="instruction">Blob It Your Way!</div>
         </div>
     </div>
 
@@ -40,10 +50,7 @@
         
         <canvas id="gameCanvas" width="1600" height="800"></canvas>
     </div>
-    <div class="controls-info">
-        <p>Use arrow keys or mouse/trackpad to control your ball</p>
-    </div>
-    
+
     <script src="js/sounds/sound.js"></script>
     <script src="js/ball.js"></script>
     <script src="js/player.js"></script>
@@ -63,5 +70,92 @@
             <button id="play-again-btn">Play Again</button>
         </div>
     </div>
+
+    <!-- Logo Canvas Animation Script -->
+    <script>
+        // Wait for the DOM to be fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get the canvas and its context
+            const canvas = document.getElementById('logo-canvas');
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            // Ball properties
+            const ball = {
+                x: width / 2,
+                y: height / 2,
+                radius: 25,
+                dx: 2,  // horizontal velocity
+                dy: 2,  // vertical velocity
+                color: '#3498db'  // blue color, change as needed
+            };
+            
+            // Animation function
+            function animate() {
+                // Clear canvas
+                ctx.clearRect(0, 0, width, height);
+                
+                // Create the ball with gradient
+                ctx.beginPath();
+                ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+                
+                // Helper function to lighten color
+                function lightenColor(color, percent) {
+                    const num = parseInt(color.replace('#', ''), 16),
+                          amt = Math.round(2.55 * percent),
+                          R = (num >> 16) + amt,
+                          G = (num >> 8 & 0x00FF) + amt,
+                          B = (num & 0x0000FF) + amt;
+                    return '#' + (0x1000000 + (R<255?R<1?0:R:255)*0x10000 + 
+                                 (G<255?G<1?0:G:255)*0x100 + 
+                                 (B<255?B<1?0:B:255)).toString(16).slice(1);
+                }
+                
+                // Create gradient
+                const gradient = ctx.createRadialGradient(
+                    ball.x - ball.radius/3, ball.y - ball.radius/3, 0,
+                    ball.x, ball.y, ball.radius
+                );
+                gradient.addColorStop(0, lightenColor(ball.color, 50));
+                gradient.addColorStop(1, ball.color);
+                
+                // Add shadow
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                ctx.shadowBlur = 10;
+                ctx.shadowOffsetX = 2;
+                ctx.shadowOffsetY = 2;
+                
+                // Fill with gradient
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                
+                // Add a subtle border
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Move the ball
+                ball.x += ball.dx;
+                ball.y += ball.dy;
+                
+                // Bounce off walls
+                if (ball.x + ball.radius > width || ball.x - ball.radius < 0) {
+                    ball.dx = -ball.dx;
+                }
+                if (ball.y + ball.radius > height || ball.y - ball.radius < 0) {
+                    ball.dy = -ball.dy;
+                }
+                
+                // Continue animation
+                requestAnimationFrame(animate);
+            }
+            
+            // Start the animation
+            animate();
+        });
+    </script>
 </body>
 </html>

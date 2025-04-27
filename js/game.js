@@ -16,20 +16,54 @@ class Game {
         this.leaderboardEl = document.getElementById('leaderboard-list');
         this.usedColors = [];
         
-        // New properties for delay and timer
+        // Game timing properties
         this.gameStarted = false;
         this.countdownValue = 3;
         this.gameTime = 0; // Time in seconds
         this.gameTimeEl = document.getElementById('game-time');
-        
-        this.initGame();
-        this.lastTimestamp = 0;
 
-        this.fixedDeltaTime = 1000 / 60; // Target 60 FPS
+        // Performance optimization properties
+        this.lastTimestamp = 0;
+        this.fixedDeltaTime = 1000 / 60; // Target 60 FPS for physics
         this.frameCount = 0;
         this.lastFpsUpdate = 0;
+        this.fps = 0;
         
+        // Fixed timestep properties
+        this.accumulator = 0;
+        this.timeStep = 1 / 60; // Fixed physics timestep in seconds
+        
+        // Object pools
+        this.initObjectPools();
+        
+        // Initialize the game
+        this.initGame();
+        
+        // Bind methods to preserve context
         this.animate = this.animate.bind(this);
+    }
+    
+    initObjectPools() {
+        // Particle pool
+        this.particlePool = [];
+        for (let i = 0; i < 500; i++) {
+            this.particlePool.push({
+                active: false,
+                x: 0,
+                y: 0,
+                dirX: 0,
+                dirY: 0,
+                size: 0,
+                color: '',
+                life: 0,
+                maxLife: 0,
+                speedX: 0,
+                speedY: 0,
+                reset: function() {
+                    this.active = false;
+                }
+            });
+        }
     }
     
     initGame() {
@@ -48,6 +82,11 @@ class Game {
             const position = this.getRandomPosition(15);
             const botColor = this.getUniqueColor();
             const bot = new Bot(position.x, position.y, 15, botColor, this.canvas);
+            
+            // Store previous position for interpolation
+            bot.prevX = bot.x;
+            bot.prevY = bot.y;
+            
             this.balls.push(bot);
             this.allPlayers.push(bot);
         }
@@ -68,7 +107,7 @@ class Game {
         };
     }
     
-    // New method to get a color that hasn't been used yet
+    // Get a color that hasn't been used yet
     getUniqueColor() {
         // All available colors with their corresponding names
         const allColors = [
@@ -83,8 +122,6 @@ class Game {
         
         if (availableColors.length === 0) {
             // If all colors have been used, reset the used colors
-            // This shouldn't happen with 20 colors and only 10 initial players
-            console.warn("All colors have been used. Resetting color selection.");
             this.usedColors = [];
             return this.getRandomColor();
         }
@@ -99,7 +136,7 @@ class Game {
         return selectedColor;
     }
     
-    // Keep the original method as fallback
+    // Fallback color method
     getRandomColor() {
         const colors = [
             '#FF6B6B', '#4ECDC4', '#FFE66D', '#1A535C', '#FF9F1C', 
@@ -155,22 +192,21 @@ class Game {
         }
     }
     
-    // WORKS LIKE GAMELOOP()
+    // Improved game loop with fixed timestep
     animate(timestamp) {
-        // Calculate time delta for smooth animation
+        // Calculate the actual delta time since last frame
         if (!this.lastTimestamp) this.lastTimestamp = timestamp;
-        const deltaTime = timestamp - this.lastTimestamp;
+        const frameTime = timestamp - this.lastTimestamp;
         this.lastTimestamp = timestamp;
         
-        // Calculate speed multiplier for consistent movement
-        const speedMultiplier = deltaTime / this.fixedDeltaTime;
+        // Cap the delta time to avoid spiral of death on slow devices
+        const cappedFrameTime = Math.min(frameTime, 200); // Cap at 200ms (5fps minimum)
         
-        // Update FPS counter - add error handling
-        try {
-            this.updateFpsCounter(timestamp);
-        } catch (error) {
-            console.error("Error updating FPS counter:", error);
-        }
+        // Convert to seconds for physics calculations
+        const deltaTime = cappedFrameTime / 1000;
+        
+        // Update FPS counter
+        this.updateFpsCounter(timestamp);
         
         // Clear canvas
         this.ctx.clearRect(0, 0, this.width, this.height);
@@ -183,12 +219,24 @@ class Game {
             // Update game time
             this.updateGameTime();
             
-            // Update and draw all balls with speedMultiplier
-            try {
-                this.update(speedMultiplier);
-            } catch (error) {
-                console.error("Error in update:", error);
+            // Accumulate time for fixed physics updates
+            this.accumulator += deltaTime;
+            
+            // Run physics updates at fixed timestep intervals
+            while (this.accumulator >= this.timeStep) {
+                try {
+                    this.updatePhysics(this.timeStep);
+                } catch (error) {
+                    console.error("Error in physics update:", error);
+                }
+                this.accumulator -= this.timeStep;
             }
+            
+            // Calculate interpolation factor for smooth rendering
+            const interpolation = this.accumulator / this.timeStep;
+            
+            // Render with interpolation
+            this.render(interpolation);
             
             // Check if player just lost (but don't end the game)
             if (!this.playerLost && this.player && !this.player.active) {
@@ -198,26 +246,25 @@ class Game {
             }
             
             // Check for game over
-            const activeBalls = this.balls.filter(ball => ball.active);
-            if (!this.gameOver && activeBalls.length <= 1) {
+            const activeBalls = this.balls.filter(ball => ball.active).length;
+            if (!this.gameOver && activeBalls <= 1) {
                 this.gameOver = true;
-                if (activeBalls.length === 1) {
-                    this.showGameOverMessage(activeBalls[0]);
+                if (activeBalls === 1) {
+                    this.showGameOverMessage(this.balls.find(ball => ball.active));
                 } else {
                     this.showGameOverMessage(null);
                 }
             }
         } else {
-            // When countdown is running, still draw balls but don't update positions
-            for (let i = 0; i < this.balls.length; i++) {
-                if (this.balls[i] && this.balls[i].active) {
-                    this.balls[i].draw(this.ctx);
-                }
-            }
+            // When countdown is running, just render balls without physics
+            this.renderBallsStatic();
         }
         
-        // IMPORTANT: Continue animation unless the game is completely over
-        // Make sure this is always called to keep the game running
+        // Update particles
+        this.updateParticles(deltaTime);
+        this.renderParticles();
+        
+        // Continue animation unless the game is completely over
         if (!this.gameOver) {
             requestAnimationFrame(this.animate);
         } else {
@@ -229,35 +276,35 @@ class Game {
         this.frameCount++;
         if (timestamp - this.lastFpsUpdate >= 1000) {
             const fps = Math.round(this.frameCount * 1000 / (timestamp - this.lastFpsUpdate));
+            this.fps = fps;
             
             // Get the FPS display element
             const fpsDisplay = document.getElementById('fps-display');
             
             if (fpsDisplay) {
                 fpsDisplay.textContent = fps;
-            } else {
-                console.warn("FPS display element not found");
             }
             
             // Reset counters
             this.frameCount = 0;
             this.lastFpsUpdate = timestamp;
-            
-            // Debug logging
-            console.log(`FPS: ${fps}`);
         }
     }
     
-    update(speedMultiplier = 1) {
-        // Update all balls with speedMultiplier
-        for (let i = 0; i < this.balls.length; i++) {
-            if (this.balls[i] && this.balls[i].active) {
-                // Add null check before calling update
-                if (typeof this.balls[i].update === 'function') {
-                    this.balls[i].update(speedMultiplier);
-                }
-                
-                this.balls[i].draw(this.ctx);
+    // Fixed timestep physics update
+    updatePhysics(timeStep) {
+        // Store previous positions for all balls
+        for (let ball of this.balls) {
+            if (ball && ball.active) {
+                ball.prevX = ball.x;
+                ball.prevY = ball.y;
+            }
+        }
+        
+        // Update all active balls
+        for (let ball of this.balls) {
+            if (ball && ball.active && typeof ball.update === 'function') {
+                ball.update(1.0); // Using fixed timestep
             }
         }
         
@@ -265,14 +312,112 @@ class Game {
         this.checkCollisions();
     }
     
+    // Render with interpolation for smooth visuals
+    render(interpolation) {
+        for (let ball of this.balls) {
+            if (ball && ball.active) {
+                // Calculate interpolated position
+                const renderX = ball.prevX + (ball.x - ball.prevX) * interpolation;
+                const renderY = ball.prevY + (ball.y - ball.prevY) * interpolation;
+                
+                // Draw at interpolated position
+                ball.drawAt(this.ctx, renderX, renderY);
+            }
+        }
+    }
+    
+    // Simple rendering for countdown phase
+    renderBallsStatic() {
+        for (let ball of this.balls) {
+            if (ball && ball.active) {
+                ball.draw(this.ctx);
+            }
+        }
+    }
+    
+    // Object pooling for particles
+    createParticle(x, y, color, size = 3, maxLife = 1.0) {
+        // Find an available particle from the pool
+        const particle = this.particlePool.find(p => !p.active);
+        if (!particle) return; // Pool exhausted
+        
+        // Set up the particle
+        particle.active = true;
+        particle.x = x;
+        particle.y = y;
+        particle.dirX = (Math.random() - 0.5) * 2;
+        particle.dirY = (Math.random() - 0.5) * 2;
+        particle.size = size;
+        particle.color = color;
+        particle.life = maxLife;
+        particle.maxLife = maxLife;
+        particle.speedX = Math.random() * 3 + 2;
+        particle.speedY = Math.random() * 3 + 2;
+        
+        return particle;
+    }
+    
+    updateParticles(deltaTime) {
+        for (let particle of this.particlePool) {
+            if (!particle.active) continue;
+            
+            // Update life
+            particle.life -= deltaTime;
+            
+            if (particle.life <= 0) {
+                particle.reset();
+                continue;
+            }
+            
+            // Update position
+            particle.x += particle.dirX * particle.speedX;
+            particle.y += particle.dirY * particle.speedY;
+            
+            // Slow down
+            particle.speedX *= 0.99;
+            particle.speedY *= 0.99;
+        }
+    }
+    
+    renderParticles() {
+        for (let particle of this.particlePool) {
+            if (!particle.active) continue;
+            
+            // Calculate opacity based on remaining life
+            const opacity = particle.life / particle.maxLife;
+            
+            this.ctx.globalAlpha = opacity;
+            this.ctx.fillStyle = particle.color;
+            this.ctx.beginPath();
+            this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+            this.ctx.fill();
+        }
+        // Reset global alpha
+        this.ctx.globalAlpha = 1;
+    }
+    
+    addMergeAnimation(x, y, color, size) {
+        // Create particle effects for merging using object pool
+        for (let i = 0; i < 20; i++) {
+            const particleSize = Math.random() * (size / 10) + 2;
+            const lifespan = Math.random() * 1 + 0.5;
+            this.createParticle(x, y, color, particleSize, lifespan);
+        }
+        
+        // Play sound effect
+        if (typeof soundManager !== 'undefined' && soundManager.play) {
+            soundManager.play('merge');
+        }
+    }
+    
     checkCollisions() {
         for (let i = 0; i < this.balls.length; i++) {
             const ball1 = this.balls[i];
-            if (!ball1.active) continue;
+            if (!ball1 || !ball1.active) continue;
             
             for (let j = i + 1; j < this.balls.length; j++) {
                 const ball2 = this.balls[j];
-                if (!ball2.active) continue;
+                if (!ball2 || !ball2.active) continue;
                 
                 if (ball1.collidesWith(ball2)) {
                     // Handle collision
@@ -323,58 +468,15 @@ class Game {
         this.updateLeaderboard();
     }
     
-    addMergeAnimation(x, y, color, size) {
-        // Create particle effects for merging
-        for (let i = 0; i < 20; i++) {
-            const particle = document.createElement('div');
-            particle.className = 'merge-particle';
-            
-            // Position at merge location
-            particle.style.left = `${x}px`;
-            particle.style.top = `${y}px`;
-            
-            // Set color based on the ball that was absorbed
-            particle.style.backgroundColor = color;
-            
-            // Random size based on the ball size
-            const particleSize = Math.random() * (size / 10) + 2;
-            particle.style.width = `${particleSize}px`;
-            particle.style.height = `${particleSize}px`;
-            
-            // Random direction
-            const angle = Math.random() * Math.PI * 2;
-            const speed = Math.random() * 3 + 2;
-            const dirX = Math.cos(angle) * speed;
-            const dirY = Math.sin(angle) * speed;
-            
-            // Animation
-            particle.animate([
-                { transform: `translate(0, 0) scale(1)`, opacity: 1 },
-                { transform: `translate(${dirX * 50}px, ${dirY * 50}px) scale(0)`, opacity: 0 }
-            ], {
-                duration: Math.random() * 1000 + 500,
-                easing: 'cubic-bezier(0.4, 0.0, 0.2, 1)',
-                fill: 'forwards'
-            });
-            
-            soundManager.play('merge'); // Play merge sound
-
-            // Add to DOM
-            document.querySelector('.game-container').appendChild(particle);
-            
-            // Remove after animation
-            setTimeout(() => {
-                particle.remove();
-            }, 1500);
-        }
-    }
-    
     updatePlayerCount() {
         const activePlayers = this.balls.filter(ball => ball.active).length;
         this.playerCountEl.textContent = activePlayers;
     }
     
     updateLeaderboard() {
+        // Only update UI every few frames to reduce DOM manipulation
+        if (this.frameCount % 5 !== 0) return;
+        
         // Create an array of all players (active and inactive) with scores
         const allPlayers = [...this.allPlayers];
         
@@ -386,6 +488,9 @@ class Game {
         
         // Add top players to leaderboard (up to 10)
         const topPlayers = allPlayers.slice(0, 10);
+        
+        // Create document fragment for batch DOM manipulation
+        const fragment = document.createDocumentFragment();
         
         topPlayers.forEach((player, index) => {
             const rank = index + 1;
@@ -417,8 +522,11 @@ class Game {
             listItem.appendChild(nameSpan);
             listItem.appendChild(scoreSpan);
             
-            this.leaderboardEl.appendChild(listItem);
+            fragment.appendChild(listItem);
         });
+        
+        // Batch append to minimize reflows
+        this.leaderboardEl.appendChild(fragment);
     }
     
     showPlayerLostMessage() {
@@ -466,6 +574,9 @@ class Game {
         // Sort all players by score
         const sortedPlayers = [...this.allPlayers].sort((a, b) => b.score - a.score);
         
+        // Create document fragment for batch DOM operations
+        const fragment = document.createDocumentFragment();
+        
         // Add each player to the rankings list
         sortedPlayers.forEach((player, index) => {
             const rank = index + 1;
@@ -489,8 +600,11 @@ class Game {
             li.appendChild(nameSpan);
             li.appendChild(scoreSpan);
             
-            finalRankingsList.appendChild(li);
+            fragment.appendChild(li);
         });
+        
+        // Batch DOM update
+        finalRankingsList.appendChild(fragment);
         
         // Show the dialog
         gameOverDialog.style.display = 'flex';
@@ -500,18 +614,6 @@ class Game {
             // Reload the page to restart the game
             location.reload();
         });
-    }
-    
-    getFinalRankingsText() {
-        // Sort all players by score
-        const sortedPlayers = [...this.allPlayers].sort((a, b) => b.score - a.score);
-        
-        // Create ranking text
-        return sortedPlayers.map((player, index) => {
-            const rank = index + 1;
-            const name = player === this.player ? `${this.playerName} (YOU)` : player.name;
-            return `${rank}. ${name}: ${player.score} points`;
-        }).join('\n');
     }
     
     drawBoundary() {
@@ -541,6 +643,26 @@ class Game {
     }
     
     start() {
+
+        console.log("Game starting...");
+    
+        // Make sure the canvas exists
+        if (!this.canvas) {
+            console.error("Canvas element not found!");
+            return;
+        }
+        
+        console.log("Canvas dimensions:", this.width, "x", this.height);
+        console.log("Initial players:", this.balls.length);
+        
+        // Reset animation state
+        this.lastTimestamp = 0;
+        this.accumulator = 0;
+        
+        // Start the countdown (which will trigger the game loop)
+        this.startCountdown();
+
+        // Start the game loop
         requestAnimationFrame(this.animate);
     }
 }

@@ -29,6 +29,11 @@ class Ball {
         this.active = true;
         this.name = ""; // Default empty name
         this.canvas = canvas; // Store reference to canvas
+        this.score = 0;  // Add score property
+        
+        // For interpolation - add these without changing other functionality
+        this.prevX = x;
+        this.prevY = y;
     }
 
     setRandomDirection() {
@@ -37,7 +42,16 @@ class Ball {
         this.velocityY = Math.sin(angle);
     }
 
+    // Original draw method preserved
     draw(ctx) {
+        if (!this.active) return;
+        
+        // Use drawAt with the current position
+        this.drawAt(ctx, this.x, this.y);
+    }
+    
+    // Add drawAt method for interpolation compatibility without breaking existing code
+    drawAt(ctx, x, y) {
         if (!this.active) return;
         
         // Save current context state
@@ -45,12 +59,12 @@ class Ball {
         
         // Create the ball with gradient
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.arc(x, y, this.radius, 0, Math.PI * 2);
         
         // Create gradient
         const gradient = ctx.createRadialGradient(
-            this.x - this.radius/3, this.y - this.radius/3, 0,
-            this.x, this.y, this.radius
+            x - this.radius/3, y - this.radius/3, 0,
+            x, y, this.radius
         );
         gradient.addColorStop(0, lightenColor(this.color, 50));
         gradient.addColorStop(1, this.color);
@@ -85,7 +99,7 @@ class Ball {
             ctx.shadowOffsetX = 1;
             ctx.shadowOffsetY = 1;
             
-            ctx.fillText(this.name, this.x, this.y - this.radius - 10);
+            ctx.fillText(this.name, x, y - this.radius - 10);
             
             // Reset shadows after drawing text
             ctx.shadowColor = "transparent";
@@ -93,9 +107,15 @@ class Ball {
     }
 
     update(speedMultiplier = 1) {
+        if (!this.active) return;
+        
+        // Store previous position for interpolation
+        this.prevX = this.x;
+        this.prevY = this.y;
+        
         // Apply speedMultiplier to all movement calculations
-        this.x += this.velocityX * speedMultiplier;
-        this.y += this.velocityY * speedMultiplier;
+        this.x += this.velocityX * this.speed * speedMultiplier;
+        this.y += this.velocityY * this.speed * speedMultiplier;
         
         // Apply friction with proper time scaling
         if (this.friction) {
@@ -103,7 +123,7 @@ class Ball {
             this.velocityY *= Math.pow(this.friction, speedMultiplier);
         }
         
-        // Fix: Call checkBoundaryCollisions instead of handleBoundaryCollision
+        // Fix: Call checkBoundaryCollisions (same method name used in your code)
         this.checkBoundaryCollisions();
     }
 
@@ -138,6 +158,11 @@ class Ball {
             this.velocityY = -this.velocityY;
         }
     }
+    
+    // Add compatibility method for Game class
+    handleBoundaryCollision() {
+        this.checkBoundaryCollisions();
+    }
 
     collidesWith(otherBall) {
         if (!this.active || !otherBall.active) return false;
@@ -159,5 +184,13 @@ class Ball {
         
         // Adjust speed as ball gets larger
         this.speed = Math.max(1, 2 - (this.radius - 15) / 30);
+        
+        // Add score from the other ball
+        this.addScore(otherBall.score || 1);
+    }
+    
+    // Add helper method for score - makes the Ball class self-contained
+    addScore(points) {
+        this.score += points;
     }
 }
