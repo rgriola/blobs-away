@@ -1,8 +1,6 @@
 # Blobs-Away - Multiplayer Ball Game
 
-A competitive multiplayer game where players control colored balls in an arena, merging with other balls to grow larger and score points.
-
-## Game Overview
+A competitive arcade-style game where you control a colorful blob, absorb smaller ones to grow larger, and dominate the arena.
 
 ![Blobs Away Game](screenshots/gameplay.png)
 
