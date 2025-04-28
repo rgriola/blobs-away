@@ -251,16 +251,22 @@ class GameUI {
         const soundControls = document.createElement('div');
         soundControls.className = 'sound-controls';
         
+        // Create a label for the sound controls
+        const controlsLabel = document.createElement('span');
+        controlsLabel.className = 'controls-label';
+        controlsLabel.textContent = 'Sound';
+        
         // Create mute toggle button
         const muteBtn = document.createElement('button');
         muteBtn.className = 'mute-btn';
-        muteBtn.innerHTML = '<i class="fas fa-volume-up"></i>'; // Requires FontAwesome
-        muteBtn.addEventListener('click', () => {
-            const isMuted = this.game.soundManager.toggleMute();
-            muteBtn.innerHTML = isMuted ? 
-                '<i class="fas fa-volume-mute"></i>' : 
-                '<i class="fas fa-volume-up"></i>';
-        });
+        muteBtn.setAttribute('aria-label', 'Toggle sound');
+        muteBtn.setAttribute('title', 'Toggle sound');
+        
+        // Set initial mute button state based on sound manager
+        const isMuted = !this.game.soundManager.soundEnabled;
+        muteBtn.innerHTML = isMuted ? 
+            '<i class="fas fa-volume-mute"></i>' : 
+            '<i class="fas fa-volume-up"></i>';
         
         // Create volume slider
         const volumeSlider = document.createElement('input');
@@ -269,14 +275,77 @@ class GameUI {
         volumeSlider.max = '100';
         volumeSlider.value = this.game.soundManager.masterVolume * 100;
         volumeSlider.className = 'volume-slider';
+        
+        // Create volume level indicator (visual feedback)
+        const volumeLevel = document.createElement('div');
+        volumeLevel.className = 'volume-level';
+        volumeLevel.style.width = `${volumeSlider.value}%`;
+        if (isMuted) {
+            volumeLevel.classList.add('muted');
+        }
+        
+        // Make the mute button more reliable with direct state management
+        muteBtn.addEventListener('click', () => {
+            // Explicitly access and toggle the sound state
+            const soundManager = this.game.soundManager;
+            
+            // Toggle the sound state
+            soundManager.soundEnabled = !soundManager.soundEnabled;
+            
+            // Update the button icon based on the new state
+            const isMuted = !soundManager.soundEnabled;
+            muteBtn.innerHTML = isMuted ? 
+                '<i class="fas fa-volume-mute"></i>' : 
+                '<i class="fas fa-volume-up"></i>';
+            
+            // Update volume slider appearance
+            if (isMuted) {
+                volumeLevel.classList.add('muted');
+            } else {
+                volumeLevel.classList.remove('muted');
+            }
+            
+            console.log(`Sound is now ${soundManager.soundEnabled ? 'enabled' : 'muted'}`);
+        });
+        
+        // Handle volume changes
         volumeSlider.addEventListener('input', (e) => {
             const volume = e.target.value / 100;
             this.game.soundManager.setVolume(volume);
+            
+            // Update volume level indicator
+            volumeLevel.style.width = `${e.target.value}%`;
+            
+            // If volume is set to 0, update the mute button
+            if (volume === 0) {
+                muteBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+            } else {
+                // If volume is changed from 0, enable sound and update icon
+                if (volumeLevel.classList.contains('muted')) {
+                    this.game.soundManager.soundEnabled = true;
+                    volumeLevel.classList.remove('muted');
+                    muteBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+                }
+                
+                // Change icon based on volume level
+                if (volume < 0.5) {
+                    muteBtn.innerHTML = '<i class="fas fa-volume-down"></i>';
+                } else {
+                    muteBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+                }
+            }
         });
         
+        // Create a container for the volume slider and level
+        const volumeSliderContainer = document.createElement('div');
+        volumeSliderContainer.className = 'volume-slider-container';
+        volumeSliderContainer.appendChild(volumeLevel);
+        volumeSliderContainer.appendChild(volumeSlider);
+        
         // Add elements to controls
+        soundControls.appendChild(controlsLabel);
         soundControls.appendChild(muteBtn);
-        soundControls.appendChild(volumeSlider);
+        soundControls.appendChild(volumeSliderContainer);
         
         // Add to the game container
         const gameContainer = document.querySelector('.game-container');

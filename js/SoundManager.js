@@ -102,15 +102,22 @@ class SoundManager {
     }
     
     // Mute/unmute all sounds
+    // Make sure your toggleMute method looks like this:
+
     toggleMute() {
+        // Toggle sound enabled state
         this.soundEnabled = !this.soundEnabled;
         
-        // If we're unmuting, restore previous volume; if muting, set volume to 0
+        console.log(`Sound is now ${this.soundEnabled ? 'enabled' : 'muted'}`);
+        
+        // Apply mute/unmute to all sounds
         for (const sound of Object.values(this.sounds)) {
-            sound.volume = this.soundEnabled ? this.masterVolume : 0;
+            // We don't modify the volume property directly, as we want to keep the master volume
+            // Instead, we use the muted property of the Audio element
+            sound.muted = !this.soundEnabled;
         }
         
-        return this.soundEnabled; // Return current state for UI updates
+        return !this.soundEnabled; // Return true if muted, false if unmuted
     }
     
     // Check if a sound exists
