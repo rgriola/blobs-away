@@ -184,8 +184,19 @@ playWithDebug(soundName) {
     }
 }
 
+// Add this method to your SoundManager class
+stopAllSounds() {
+    console.log("Stopping all sounds");
+    
+    for (const [name, sound] of Object.entries(this.sounds)) {
+        try {
+            sound.pause();
+            sound.currentTime = 0;
+        } catch (error) {
+            console.warn(`Error stopping sound ${name}:`, error);
+        }
+    }
 }
 
-
-
+}
 export { SoundManager };

@@ -50,7 +50,9 @@ class GamePhysics {
     // Check for collisions between all active balls
     checkCollisions() {
         for (let i = 0; i < this.game.balls.length; i++) {
+            
             const ball1 = this.game.balls[i];
+            
             if (!ball1 || !ball1.active) continue;
             
             for (let j = i + 1; j < this.game.balls.length; j++) {
@@ -61,7 +63,7 @@ class GamePhysics {
                     // Handle collision
                     this.resolveCollision(ball1, ball2);
                     // Update leaderboard after collision
-                    this.game.ui.updateLeaderboard();
+                    this.game.ui.updateLeaderboard(true);
                 }
             }
         }

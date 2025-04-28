@@ -309,6 +309,44 @@ class Game {
         // Start the game loop
         requestAnimationFrame(this.animate);
     }
+
+// Add these methods to your Game class
+// Call this whenever a player scores points
+updatePlayerScore(player, points) {
+    // Update the player's score
+    player.score += points;
+    
+    // Force leaderboard update
+    if (this.ui) {
+        this.ui.updateLeaderboard(true);
+    }
+}
+
+// Call this when a player absorbs another player
+handlePlayerAbsorption(eaterPlayer, eatenPlayer) {
+    // Set the eaten player as inactive
+    console.log("Eaten player:", eatenPlayer);
+    console.log("Eaten player active:", eatenPlayer.active);
+
+    eatenPlayer.active = false;
+    
+    // Award points to the eater
+    eaterPlayer.score += Math.floor(eatenPlayer.radius);
+    
+    // Force update the leaderboard
+    if (this.ui) {
+        this.ui.updateLeaderboard(true);
+    }
+    
+    // Play appropriate sound
+    if (eatenPlayer === this.player) {
+        this.soundManager.play('playerLost');
+    } else if (this.soundManager) {
+        this.soundManager.play('merge');
+    }
+}
+
+
 } // Close the Game class definition
     
 // Export the Game class OUTSIDE the class definition

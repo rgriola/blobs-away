@@ -95,14 +95,15 @@ class GameUI {
         }
     }
     
-    updateLeaderboard() {
-        // Skip if leaderboard doesn't exist
-        if (!this.leaderboardEl) return;
+    updateLeaderboard(forceUpdate = false) {
+        // Skip if leaderboard doesn't exist or game is over
+        if (!this.leaderboardEl || this.game.gameOver) return;
         
         // Only update UI every few frames to reduce DOM manipulation
-        if (this.frameCount % 5 !== 0) return;
+        // But allow force update to bypass the frame check
+        if (!forceUpdate && this.frameCount % 5 !== 0) return;
         
-        // Create an array of all players (active and inactive) with scores
+        // Create an array of all players
         const allPlayers = [...this.game.allPlayers];
         
         // Sort by score (descending)
@@ -111,38 +112,47 @@ class GameUI {
         // Clear current leaderboard
         this.leaderboardEl.innerHTML = '';
         
-        // Add top players to leaderboard (up to 10)
-        const topPlayers = allPlayers.slice(0, 10);
-        
-        // Create document fragment for batch DOM manipulation
+        // Create document fragment for batch DOM operations
         const fragment = document.createDocumentFragment();
+        
+        // Add up to 10 players to the leaderboard
+        const topPlayers = allPlayers.slice(0, 10);
         
         topPlayers.forEach((player, index) => {
             const rank = index + 1;
-            const playerName = player === this.game.player ? this.game.playerName : player.name;
-            const score = player.score || 0;
             
+            // Use different class for active vs inactive players
             const listItem = document.createElement('li');
             
-            // Add classes for styling
-            listItem.classList.add(player.active ? 'active-player' : 'inactive-player');
+            // Add styles based on player status
+            if (!player.active) {
+                listItem.classList.add('inactive-player');
+            } else {
+                listItem.classList.add('active-player');
+            }
+            
+            // Highlight current player
             if (player === this.game.player) {
                 listItem.classList.add('current-player');
             }
             
-            // Create span elements with appropriate classes
+            // Create rank span
             const rankSpan = document.createElement('span');
             rankSpan.classList.add('player-rank');
             rankSpan.textContent = `${rank}.`;
             
+            // Create name span
             const nameSpan = document.createElement('span');
             nameSpan.classList.add('player-name');
-            nameSpan.textContent = playerName;
+            nameSpan.textContent = player === this.game.player ? 
+                this.game.playerName : player.name;
             
+            // Create score span
             const scoreSpan = document.createElement('span');
             scoreSpan.classList.add('player-score');
-            scoreSpan.textContent = score;
+            scoreSpan.textContent = player.score;
             
+            // Assemble the list item
             listItem.appendChild(rankSpan);
             listItem.appendChild(nameSpan);
             listItem.appendChild(scoreSpan);
@@ -150,7 +160,7 @@ class GameUI {
             fragment.appendChild(listItem);
         });
         
-        // Batch append to minimize reflows
+        // Batch DOM update
         this.leaderboardEl.appendChild(fragment);
     }
     
@@ -246,7 +256,7 @@ class GameUI {
             });
         }
     }
-
+    //////// SOUND CONTROLS ///////////
     addSoundControls() {
         const soundControls = document.createElement('div');
         soundControls.className = 'sound-controls';
