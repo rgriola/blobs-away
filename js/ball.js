@@ -106,26 +106,21 @@ class Ball {
         }
     }
 
-    update(speedMultiplier = 1) {
-        if (!this.active) return;
-        
-        // Store previous position for interpolation
-        this.prevX = this.x;
-        this.prevY = this.y;
-        
-        // Apply speedMultiplier to all movement calculations
-        this.x += this.velocityX * this.speed * speedMultiplier;
-        this.y += this.velocityY * this.speed * speedMultiplier;
-        
-        // Apply friction with proper time scaling
-        if (this.friction) {
-            this.velocityX *= Math.pow(this.friction, speedMultiplier);
-            this.velocityY *= Math.pow(this.friction, speedMultiplier);
-        }
-        
-        // Fix: Call checkBoundaryCollisions (same method name used in your code)
-        this.checkBoundaryCollisions();
-    }
+    // Make sure your Ball class update method looks something like this:
+    update(deltaTime) {
+    // If not active, don't update
+    if (!this.active) return;
+
+      // Store previous position for interpolation
+      this.prevX = this.x;
+      this.prevY = this.y;
+    
+    // Update position based on velocity
+    this.x += this.velocityX * this.speed;
+    this.y += this.velocityY * this.speed;
+    
+    // Do not handle boundary collisions here - GamePhysics will handle that
+}
 
     checkBoundaryCollisions() {
         // Use canvas dimensions instead of hardcoded values
@@ -194,3 +189,4 @@ class Ball {
         this.score += points;
     }
 }
+export { Ball };

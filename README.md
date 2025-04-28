@@ -1,10 +1,10 @@
-# Blob Merge - Multiplayer Ball Game
+# Blobs-Away - Multiplayer Ball Game
 
 A competitive multiplayer game where players control colored balls in an arena, merging with other balls to grow larger and score points.
 
 ## Game Overview
 
-![Blob Merge Game](screenshots/gameplay.png)
+![Blobs Away Game](screenshots/gameplay.png)
 
 Blob Merge is a fast-paced multiplayer game where players control colored balls that bounce within a bounded arena. The goal is to absorb other balls by colliding with them, growing larger and scoring points in the process.
 

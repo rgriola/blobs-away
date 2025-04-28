@@ -1,3 +1,5 @@
+import { Game } from './game.js';
+
 document.addEventListener('DOMContentLoaded', function() {
     const playerDialog = document.getElementById('player-dialog');
     const playerNameInput = document.getElementById('player-name-input');

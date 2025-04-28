@@ -1,3 +1,5 @@
+import { Ball } from './ball.js';
+
 class Bot extends Ball {
     constructor(x, y, radius, color, canvas) {
         super(x, y, radius, color, canvas);
@@ -97,3 +99,5 @@ class Bot extends Ball {
         }
     }
 }
+
+export { Bot };
