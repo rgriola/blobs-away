@@ -108,6 +108,26 @@ function startGame() {
             // Store game instance on window to prevent garbage collection
             window.gameInstance = game;
             
+            // add enableAudio here
+            // Enable audio with user interaction (add this code here)
+            function enableAudio() {
+                if (window.gameInstance && window.gameInstance.soundManager) {
+                    // Start background music
+                    window.gameInstance.soundManager.playMusic('game-music', 0.3);
+                    
+                    // Clean up event listeners
+                    document.removeEventListener('click', enableAudio);
+                    document.removeEventListener('keydown', enableAudio);
+                    document.removeEventListener('touchstart', enableAudio);
+                }
+            }
+            
+            // Add event listeners for user interaction to enable audio
+            document.addEventListener('click', enableAudio);
+            document.addEventListener('keydown', enableAudio);
+            document.addEventListener('touchstart', enableAudio);
+            
+
             // Start monitoring performance
             setupPerformanceMonitoring();
             

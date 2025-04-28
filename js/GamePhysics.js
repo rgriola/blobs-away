@@ -50,7 +50,7 @@ class GamePhysics {
     // Check for collisions between all active balls
     checkCollisions() {
         for (let i = 0; i < this.game.balls.length; i++) {
-            
+            // called in update()
             const ball1 = this.game.balls[i];
             
             if (!ball1 || !ball1.active) continue;
@@ -82,32 +82,15 @@ class GamePhysics {
             loser = ball1;
         } else {
             // Same size - random winner
-            if (Math.random() < 0.5) {
-                winner = ball1;
-                loser = ball2;
-            } else {
-                winner = ball2;
-                loser = ball1;
-            }
+            winner = Math.random() < 0.5 ? ball1 : ball2;
+            loser = winner === ball1 ? ball2 : ball1;
         }
         
         // Add merge animation at loser position
         this.game.addMergeAnimation(loser.x, loser.y, loser.color, loser.radius);
         
-        // Merge the balls
-        winner.merge(loser);
-        loser.active = false;
-        
-        // Add score if player or bot wins
-        const Bot = this.game.Bot; // Reference to Bot class
-        if (winner === this.game.player) {
-            this.game.player.addScore(2);
-        } else if (Bot && winner instanceof Bot) {
-            winner.addScore(2);
-        }
-        
-        // Update UI after collision
-        this.game.ui.updatePlayerCount();
+        // Handle player absorption (manages score, merging, sound, and UI updates)
+        this.game.handlePlayerAbsorption(winner, loser);
     }
     
     // Check if coordinates are within game boundary
@@ -187,7 +170,6 @@ class GamePhysics {
         
         for (let particle of this.game.particlePool) {
             if (!particle.active) continue;
-            
             // Update life
             particle.life -= deltaTime;
             
@@ -206,5 +188,4 @@ class GamePhysics {
         }
     }
 }
-
 export { GamePhysics };

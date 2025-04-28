@@ -49,7 +49,8 @@ class Ball {
         // Use drawAt with the current position
         this.drawAt(ctx, this.x, this.y);
     }
-    
+
+
     // Add drawAt method for interpolation compatibility without breaking existing code
     drawAt(ctx, x, y) {
         if (!this.active) return;

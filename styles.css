@@ -599,8 +599,8 @@ canvas {
 ============================================= */
 .sound-controls {
   position: absolute;
-  bottom: 20px;  /* Changed from top to bottom positioning */
-  left: 20px;    /* Adjusted position */
+  bottom: 100px;  /* Changed from top to bottom positioning */
+  left: 60px;    /* Adjusted position */
   padding: 8px 15px;
   border-radius: var(--border-radius-xl);
   background-color: var(--bg-overlay-dark);

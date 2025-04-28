@@ -44,6 +44,8 @@ class Game {
         
         // Create the sound manager
         this.soundManager = new SoundManager();
+        // Start background music with lower volume (it's already in your preloadSounds)
+        this.soundManager.playMusic('music', 0.3);
         
         // Create instances of the renderer and UI
         this.renderer = new GameRenderer(this);
@@ -92,7 +94,7 @@ class Game {
         this.ui.updatePlayerDisplay(this.playerName);
         
         // Create bots with unique colors
-        for (let i = 0; i < 9; i++) {
+        for (let i = 0; i < 18; i++) {
             const position = this.physics.getRandomPosition(15);
             const botColor = this.getUniqueColor();
             const bot = new Bot(position.x, position.y, 15, botColor, this.canvas);
@@ -322,20 +324,34 @@ updatePlayerScore(player, points) {
     }
 }
 
-// Call this when a player absorbs another player
+// Updated handlePlayerAbsorption method in game.js
 handlePlayerAbsorption(eaterPlayer, eatenPlayer) {
+    // called in gamePhysics.resolveCollision
+    
     // Set the eaten player as inactive
-    console.log("Eaten player:", eatenPlayer);
-    console.log("Eaten player active:", eatenPlayer.active);
-
     eatenPlayer.active = false;
     
-    // Award points to the eater
-    eaterPlayer.score += Math.floor(eatenPlayer.radius);
+    // Award points to the eater - use your scoring system
+    // Option 1: Keep flat points system from GamePhysics
+    const Bot = this.Bot;
+    if (eaterPlayer === this.player) {
+        this.player.addScore(2);
+    } else if (Bot && eaterPlayer instanceof Bot) {
+        eaterPlayer.addScore(2);
+        }
+    
+    // Option 2: Score based on radius
+    // eaterPlayer.score += Math.floor(eatenPlayer.radius);
+    
+    // Merge the balls
+    if (typeof eaterPlayer.merge === 'function') {
+        eaterPlayer.merge(eatenPlayer);
+    }
     
     // Force update the leaderboard
     if (this.ui) {
         this.ui.updateLeaderboard(true);
+        this.ui.updatePlayerCount();
     }
     
     // Play appropriate sound
@@ -345,7 +361,6 @@ handlePlayerAbsorption(eaterPlayer, eatenPlayer) {
         this.soundManager.play('merge');
     }
 }
-
 
 } // Close the Game class definition
     

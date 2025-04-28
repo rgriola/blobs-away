@@ -189,13 +189,105 @@ class Player extends Ball {
     
     // Override addScore to update UI
     addScore(points) {
+        // called in game.handlePlayerAbsorption
         super.addScore(points);
-        
         // Update score display if available
         if (this.scoreElement) {
             this.scoreElement.textContent = this.score;
         }
     }
+
+// Override the drawAt method in Player class
+    drawAt(ctx, x, y) {
+        // First call the parent's drawAt to render the ball with all its effects
+        super.drawAt(ctx, x, y);
+        
+        // Then add the heart on top
+        if (this.active) {
+            this.drawHeart(ctx, x, y);
+        }
+    }
+    // Replace your current drawHeart method with this enhanced version
+    drawHeart(ctx, x, y) {
+        const heartSize = this.radius * 0.5;
+        
+        // More pronounced pulsing effect
+        const now = performance.now();
+        const pulseAmount = Math.sin(now * 0.003) * 0.15 + 1;
+        const adjustedSize = heartSize * pulseAmount;
+        
+        // Extract player color components for contrast adaptation
+        let heartColor = 'white';
+        let glowColor = 'rgba(255, 255, 255, 0.8)';
+        
+        // Determine if player color is light or dark to adjust heart color
+        if (this.color.startsWith('#')) {
+            // Handle hex color
+            const r = parseInt(this.color.slice(1, 3), 16);
+            const g = parseInt(this.color.slice(3, 5), 16);
+            const b = parseInt(this.color.slice(5, 7), 16);
+            
+            // If the ball color is light, use a darker heart
+            if ((r + g + b) / 3 > 170) {
+                heartColor = '#ff3366';  // Pinkish-red heart
+                glowColor = 'rgba(255, 51, 102, 0.8)';
+            }
+        } else if (this.color.startsWith('rgb')) {
+            // Handle RGB color string
+            const rgbMatch = this.color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/i);
+            if (rgbMatch) {
+                const [_, r, g, b] = rgbMatch;
+                if ((parseInt(r) + parseInt(g) + parseInt(b)) / 3 > 170) {
+                    heartColor = '#ff3366';
+                    glowColor = 'rgba(255, 51, 102, 0.8)';
+                }
+            }
+        }
+        
+        // Draw glow effect first (multiple layers for stronger effect)
+        ctx.save();
+        
+        // Outer glow
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = 15;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        
+        // Draw heart shape with glow
+        this.drawHeartPath(ctx, x, y, adjustedSize * 1.1);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.fill();
+        
+        // Inner heart
+        ctx.shadowBlur = 8;
+        this.drawHeartPath(ctx, x, y, adjustedSize);
+        ctx.fillStyle = heartColor;
+        ctx.fill();
+        
+        // Add outline for definition
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        
+        ctx.restore();
+    }
+
+    // Helper method to avoid repeating the heart path code
+    drawHeartPath(ctx, x, y, size) {
+        ctx.beginPath();
+        ctx.moveTo(x, y - size * 0.3);
+        ctx.bezierCurveTo(
+            x - size / 2, y - size / 2,
+            x - size, y + size / 4,
+            x, y + size / 2
+        );
+        ctx.bezierCurveTo(
+            x + size, y + size / 4,
+            x + size / 2, y - size / 2,
+            x, y - size * 0.3
+        );
+    }
+
 }
 
 export { Player };
