@@ -86,7 +86,10 @@ class Game {
         // Create player with a unique color
         const playerPosition = this.physics.getRandomPosition(15);
         const playerColor = this.getUniqueColor();
+
+        // player is initialized 
         this.player = new Player(playerPosition.x, playerPosition.y, 15, playerColor, this.playerName, this.canvas);
+       
         this.balls.push(this.player);
         this.allPlayers.push(this.player);
         
@@ -95,8 +98,11 @@ class Game {
         
         // Create bots with unique colors
         for (let i = 0; i < 18; i++) {
+           
             const position = this.physics.getRandomPosition(15);
             const botColor = this.getUniqueColor();
+
+            //Bot is initialized
             const bot = new Bot(position.x, position.y, 15, botColor, this.canvas);
             
             // Store previous position for interpolation
@@ -226,7 +232,13 @@ class Game {
                     this.ui.showGameOverMessage(this.balls.find(ball => ball.active));
                 } else {
                     this.ui.showGameOverMessage(null);
-                }
+                    }
+                    
+                // Fade out the music over 2 seconds
+                if (this.soundManager && this.soundManager.hasSound('music')) {
+                    this.soundManager.fadeSound('music', 0, 2000);
+                    }
+
             }
         } else {
             // Just render static objects during countdown
@@ -289,7 +301,7 @@ class Game {
             }
     }
     
-    start() {
+    start() { // this is where the game is actually started. 
         console.log("Game starting...");
     
         // Make sure the canvas exists
@@ -310,58 +322,134 @@ class Game {
     
         // Start the game loop
         requestAnimationFrame(this.animate);
-    }
+    } 
 
-// Add these methods to your Game class
-// Call this whenever a player scores points
-updatePlayerScore(player, points) {
-    // Update the player's score
-    player.score += points;
-    
-    // Force leaderboard update
-    if (this.ui) {
-        this.ui.updateLeaderboard(true);
-    }
-}
 
-// Updated handlePlayerAbsorption method in game.js
-handlePlayerAbsorption(eaterPlayer, eatenPlayer) {
-    // called in gamePhysics.resolveCollision
-    
-    // Set the eaten player as inactive
-    eatenPlayer.active = false;
-    
-    // Award points to the eater - use your scoring system
-    // Option 1: Keep flat points system from GamePhysics
-    const Bot = this.Bot;
-    if (eaterPlayer === this.player) {
-        this.player.addScore(2);
-    } else if (Bot && eaterPlayer instanceof Bot) {
-        eaterPlayer.addScore(2);
+    restart() {
+        // Stop current animation frame
+        if (this.animationFrameId) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
         }
-    
-    // Option 2: Score based on radius
-    // eaterPlayer.score += Math.floor(eatenPlayer.radius);
-    
-    // Merge the balls
-    if (typeof eaterPlayer.merge === 'function') {
-        eaterPlayer.merge(eatenPlayer);
-    }
-    
-    // Force update the leaderboard
-    if (this.ui) {
-        this.ui.updateLeaderboard(true);
-        this.ui.updatePlayerCount();
-    }
-    
-    // Play appropriate sound
-    if (eatenPlayer === this.player) {
-        this.soundManager.play('playerLost');
-    } else if (this.soundManager) {
-        this.soundManager.play('merge');
-    }
-}
+        
+        // Reset game state
+        this.gameOver = false;
+        this.playerLost = false;
+        this.gameStarted = false;
+        this.balls = [];
+        this.usedColors = [];
+        
+        // Reset timing properties
+        this.lastTimestamp = 0;
+        this.accumulator = 0;
+        this.gameTime = 0;
+        
+        // Reset UI and leaderboard
+        if (this.ui) {
+            this.ui.resetLeaderboard();
+        }
 
+        // Reinitialize the game
+        this.initGame();
+        
+        // Reset and restart music
+        if (this.soundManager && this.soundManager.hasSound('music')) {
+            this.soundManager.playMusic('music', 0.3);
+        }
+        
+        // Update UI elements
+        this.ui.updatePlayerCount();
+        this.ui.updateLeaderboard();
+
+        // Start the countdown and game loop
+        this.start();
+    }
+
+    // Add these methods to your Game class
+    // Call this whenever a player scores points
+    updatePlayerScore(player, points) {
+        // Update the player's score
+        player.score += points;
+        
+        // Force leaderboard update
+        if (this.ui) {
+            this.ui.updateLeaderboard(true);
+        }
+    }
+
+    // Updated handlePlayerAbsorption method in game.js
+    handlePlayerAbsorption(eaterPlayer, eatenPlayer) {
+        // called in gamePhysics.resolveCollision
+        
+        // Set the eaten player as inactive
+        eatenPlayer.active = false;
+        
+        // Award points to the eater - use your scoring system
+        // Option 1: Keep flat points system from GamePhysics
+        const Bot = this.Bot;
+        if (eaterPlayer === this.player) {
+            this.player.addScore(2);
+        } else if (Bot && eaterPlayer instanceof Bot) {
+            eaterPlayer.addScore(2);
+            }
+        
+        // Option 2: Score based on radius
+        // eaterPlayer.score += Math.floor(eatenPlayer.radius);
+        
+        // Merge the balls
+        if (typeof eaterPlayer.merge === 'function') {
+            eaterPlayer.merge(eatenPlayer);
+        }
+        
+        // Force update the leaderboard
+        if (this.ui) {
+            this.ui.updateLeaderboard(true);
+            this.ui.updatePlayerCount();
+        }
+        
+        // Play appropriate sound
+        if (eatenPlayer === this.player) {
+            this.soundManager.play('playerLost');
+        } else if (this.soundManager) {
+            this.soundManager.play('merge');
+        }
+    }
+
+    cleanup() {
+        // Stop animation frame
+        if (this.animationFrameId) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
+        
+        // Clear balls array
+        this.balls = [];
+        
+        // Reset game state
+        this.gameOver = false;
+        this.playerLost = false;
+        this.gameStarted = false;
+        
+        // Reset scores
+        if (this.player) {
+            this.player.score = 0;
+        }
+        
+        // Stop music
+        if (this.soundManager) {
+            this.soundManager.fadeSound('music', 0, 1000);
+        }
+        
+        // Remove any game-specific event listeners
+        this.removeEventListeners();
+    }
+
+    removeEventListeners() {
+        // Remove any game-specific event listeners here
+        document.removeEventListener('keydown', this.handleKeyDown);
+        document.removeEventListener('keyup', this.handleKeyUp);
+        // Add any other event listener cleanup
+    }
 } // Close the Game class definition
     
 // Export the Game class OUTSIDE the class definition

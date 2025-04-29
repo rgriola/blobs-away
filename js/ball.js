@@ -48,6 +48,11 @@ class Ball {
         
         // Use drawAt with the current position
         this.drawAt(ctx, this.x, this.y);
+
+        // Add debug visualization if debug mode is enabled
+    if (this.canvas.debugMode) {
+        this.drawDebug(ctx);
+    }
     }
 
 
@@ -119,6 +124,9 @@ class Ball {
     // Update position based on velocity
     this.x += this.velocityX * this.speed;
     this.y += this.velocityY * this.speed;
+
+    // Validate position after movement
+    this.validatePosition();
     
     // Do not handle boundary collisions here - GamePhysics will handle that
 }
@@ -189,5 +197,77 @@ class Ball {
     addScore(points) {
         this.score += points;
     }
+
+        // Add this method after the draw methods
+    drawDebug(ctx) {
+        if (!this.active) return;
+        
+        // Draw velocity vector
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y);
+        ctx.lineTo(
+            this.x + this.velocityX * 10,
+            this.y + this.velocityY * 10
+        );
+        ctx.strokeStyle = 'yellow';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // Draw boundary circle
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        // Draw center point
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+        ctx.fillStyle = 'red';
+        ctx.fill();
+    }
+
+    // Add this method after checkBoundaryCollisions()
+validatePosition() {
+    const canvasWidth = this.canvas.width;
+    const canvasHeight = this.canvas.height;
+    const boundaryOffset = 100;
+    const bottomOffset = boundaryOffset + 50;
+    
+    // Check for invalid positions
+    if (isNaN(this.x) || isNaN(this.y)) {
+        console.warn('Invalid ball position detected:', this);
+        this.x = canvasWidth / 2;
+        this.y = canvasHeight / 2;
+        this.velocityX = 0;
+        this.velocityY = 0;
+        return false;
+    }
+    
+    // Check for stuck balls
+    if (this.x - this.radius <= boundaryOffset || 
+        this.x + this.radius >= canvasWidth - boundaryOffset ||
+        this.y - this.radius <= boundaryOffset ||
+        this.y + this.radius >= canvasHeight - bottomOffset) {
+        
+        // Log the issue
+        console.log('Ball touching boundary:', {
+            x: this.x,
+            y: this.y,
+            radius: this.radius,
+            velocity: {x: this.velocityX, y: this.velocityY}
+        });
+        
+        // Add a small impulse if velocity is very low
+        const minVelocity = 0.5;
+        if (Math.abs(this.velocityX) < minVelocity && Math.abs(this.velocityY) < minVelocity) {
+            this.velocityX += (Math.random() - 0.5) * 2;
+            this.velocityY += (Math.random() - 0.5) * 2;
+        }
+    }
+    
+    return true;
+}
+
 }
 export { Ball };

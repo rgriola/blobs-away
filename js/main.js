@@ -42,21 +42,7 @@ document.addEventListener('DOMContentLoaded', function() {
             startGame();
         }
     });
-    
-    // Play again functionality
-    if (playAgainBtn) {
-        playAgainBtn.addEventListener('click', function() {
-            // Hide the game over dialog
-            gameOverDialog.style.display = 'none';
-            
-            // Show the player dialog
-            playerDialog.style.display = 'flex';
-            
-            // Focus on the input field
-            playerNameInput.focus();
-        });
-    }
-    
+
     // Validate player name
     function validatePlayerName() {
         const name = playerNameInput.value.trim();

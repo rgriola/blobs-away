@@ -178,6 +178,20 @@ class GameUI {
         }, 3000);
     }
     
+    resetLeaderboard() {
+        // Clear the leaderboard element
+        if (this.leaderboardEl) {
+            this.leaderboardEl.innerHTML = '';
+        }
+        
+        // Reset any stored scores or rankings
+        if (this.game.allPlayers) {
+            this.game.allPlayers.forEach(player => {
+                player.score = 0;
+            });
+        }
+    }
+
     showGameOverMessage(winner) {
         // Get dialog elements
         const gameOverDialog = document.getElementById('game-over-dialog');
@@ -205,7 +219,34 @@ class GameUI {
             gameOverMessage.textContent += ` Game duration: ${this.gameTimeEl.textContent}`;
         }
         
-        // Populate final rankings
+        // Clear and populate final rankings
+        this.updateFinalRankings(finalRankingsList, winner);
+        
+        // Show the dialog
+        if (gameOverDialog) {
+            gameOverDialog.style.display = 'flex';
+        }
+        
+        // Handle play again button
+        if (playAgainBtn) {
+            // Remove any existing click listeners
+            const newPlayAgainBtn = playAgainBtn.cloneNode(true);
+            playAgainBtn.parentNode.replaceChild(newPlayAgainBtn, playAgainBtn);
+            
+            // Add new click listener for restart
+            newPlayAgainBtn.addEventListener('click', () => {
+                // Hide the game over dialog
+                gameOverDialog.style.display = 'none';
+                
+                // Restart the game directly
+                this.game.restart();
+            });
+        }
+
+    }
+
+    // Helper method to update final rankings
+    updateFinalRankings(finalRankingsList, winner) {
         finalRankingsList.innerHTML = '';
         
         // Sort all players by score
@@ -242,20 +283,8 @@ class GameUI {
         
         // Batch DOM update
         finalRankingsList.appendChild(fragment);
-        
-        // Show the dialog
-        if (gameOverDialog) {
-            gameOverDialog.style.display = 'flex';
-        }
-        
-        // Handle play again button
-        if (playAgainBtn) {
-            playAgainBtn.addEventListener('click', () => {
-                // Reload the page to restart the game
-                location.reload();
-            });
-        }
     }
+
     //////// SOUND CONTROLS ///////////
     addSoundControls() {
         const soundControls = document.createElement('div');

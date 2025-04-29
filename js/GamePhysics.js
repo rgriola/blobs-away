@@ -22,6 +22,9 @@ class GamePhysics {
         
         // Add an extra boundary check for all balls to ensure they stay in bounds
         this.enforceBoundaries();
+
+        // Add validation after collision checks
+        this.validateBallPositions();
     }
     
     // Store previous positions for interpolation
@@ -111,48 +114,68 @@ class GamePhysics {
             y: this.boundaryOffset + radius + Math.random() * (this.height - this.boundaryOffset - bottomOffset - radius * 2)
         };
     }
-    
-    // Modify your handleBoundaryCollision method to play a sound
+
     handleBoundaryCollision(ball) {
-        const bottomOffset = this.boundaryOffset + 50; // Extra 50px for bottom boundary
+        const bottomOffset = this.boundaryOffset + 50;
         let bounced = false;
-        
+        const minBounceVelocity = 2.0; // Minimum velocity after bounce
+        const bounceMultiplier = 1.1; // Slightly increase velocity on bounce
+
         // Right boundary
         if (ball.x + ball.radius > this.width - this.boundaryOffset) {
             ball.x = this.width - this.boundaryOffset - ball.radius;
-            ball.velocityX *= -1;
+            ball.velocityX *= -bounceMultiplier;
             bounced = true;
         }
         // Left boundary
         else if (ball.x - ball.radius < this.boundaryOffset) {
             ball.x = this.boundaryOffset + ball.radius;
-            ball.velocityX *= -1;
+            ball.velocityX *= -bounceMultiplier;
             bounced = true;
         }
-        
+
         // Bottom boundary
         if (ball.y + ball.radius > this.height - bottomOffset) {
             ball.y = this.height - bottomOffset - ball.radius;
-            ball.velocityY *= -1;
+            ball.velocityY *= -bounceMultiplier;
             bounced = true;
         }
         // Top boundary
         else if (ball.y - ball.radius < this.boundaryOffset) {
             ball.y = this.boundaryOffset + ball.radius;
-            ball.velocityY *= -1;
+            ball.velocityY *= -bounceMultiplier;
             bounced = true;
         }
-        
-        // Play bounce sound on collision
+
+        // If ball bounced, ensure minimum velocity
         if (bounced) {
-            // Play sound, but only sometimes to avoid sound spam
-            // Only play for larger balls or at a reduced rate
-            if (ball.radius > 25 || Math.random() < 0.1) {
-                this.game.soundManager.play('bounce');
+            // Calculate current velocity magnitude
+            const currentVelocity = Math.sqrt(
+                ball.velocityX * ball.velocityX + 
+                ball.velocityY * ball.velocityY
+            );
+
+            // If velocity is too low, increase it
+            if (currentVelocity < minBounceVelocity) {
+                const scale = minBounceVelocity / currentVelocity;
+                ball.velocityX *= scale;
+                ball.velocityY *= scale;
             }
+
+            // Add a small random component to prevent perpetual patterns
+            ball.velocityX += (Math.random() - 0.5) * 0.1;
+            ball.velocityY += (Math.random() - 0.5) * 0.1;
+
+            // Play bounce sound if significant collision
+            if (currentVelocity > 1.0) {
+                this.game.soundManager.play('bounce', 
+                    Math.min(0.3 + (ball.radius / 100), 1.0));
+            }
+
+            return true;
         }
-        
-        return bounced;
+
+        return false;
     }
     
     // Add this new method to double check all balls are within boundaries
@@ -185,6 +208,32 @@ class GamePhysics {
             // Slow down
             particle.speedX *= 0.99;
             particle.speedY *= 0.99;
+        }
+    }
+
+    validateBallPositions() {
+        for (let ball of this.game.balls) {
+            if (!ball || !ball.active) continue;
+            
+            // Check for NaN positions
+            if (isNaN(ball.x) || isNaN(ball.y)) {
+                console.warn('Invalid ball position detected:', ball);
+                // Reset to safe position
+                const pos = this.getRandomPosition(ball.radius);
+                ball.x = pos.x;
+                ball.y = pos.y;
+                ball.velocityX = 0;
+                ball.velocityY = 0;
+            }
+            
+            // Check for extreme velocities
+            const maxVelocity = 1000;
+            if (Math.abs(ball.velocityX) > maxVelocity) {
+                ball.velocityX = Math.sign(ball.velocityX) * maxVelocity;
+            }
+            if (Math.abs(ball.velocityY) > maxVelocity) {
+                ball.velocityY = Math.sign(ball.velocityY) * maxVelocity;
+            }
         }
     }
 }
