@@ -122,7 +122,7 @@ class Player extends Ball {
             console.log("Touch target set:", this.targetX, this.targetY);
         }
     }
-    
+
     // Process keyboard input and set velocity
     handleKeyboardInput() {
         // Calculate direction based on key states

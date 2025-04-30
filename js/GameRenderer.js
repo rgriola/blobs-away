@@ -28,30 +28,28 @@ class GameRenderer {
 
     // Render all game objects with interpolation
     render(interpolation) {
-        // Defensively check if balls array exists and has elements
-        if (!this.game.balls || !this.game.balls.length) {
-            console.warn("No balls to render");
-            return;
-        }
+             // Clear the entire canvas first
+             this.clear();
         
-        // Render balls with interpolation for smooth movement
-        for (let i = 0; i < this.game.balls.length; i++) {
-            const ball = this.game.balls[i];
+             // Draw game boundary
+             this.drawBoundary();
+        
+         // Draw all active balls with interpolation
+         for (const ball of this.game.balls) {
             if (ball && ball.active) {
-                // Calculate interpolated position
-                const renderX = ball.prevX + (ball.x - ball.prevX) * interpolation;
-                const renderY = ball.prevY + (ball.y - ball.prevY) * interpolation;
-                
-                // Draw ball at interpolated position
-                if (typeof ball.drawAt === 'function') {
-                    ball.drawAt(this.ctx, renderX, renderY);
-                } else {
-                    // Fallback if drawAt not available
-                    ball.draw(this.ctx);
-                }
+                // Use ball's own drawAt method instead of drawBall
+                const x = ball.prevX + (ball.x - ball.prevX) * interpolation;
+                const y = ball.prevY + (ball.y - ball.prevY) * interpolation;
+                ball.drawAt(this.ctx, x, y);
             }
         }
+        
+           // Draw particles if any
+           if (this.game.particleManager) {
+            this.renderParticles();
+        }
     }
+
 
     // Render static scene (used during countdown)
     renderStatic() {

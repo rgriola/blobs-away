@@ -1,164 +1,173 @@
 import { Game } from './game.js';
 
-document.addEventListener('DOMContentLoaded', function() {
-    const playerDialog = document.getElementById('player-dialog');
-    const playerNameInput = document.getElementById('player-name-input');
-    const startGameBtn = document.getElementById('start-game-btn'); // Fixed variable name
-    const gameContainer = document.querySelector('.game-container');
-    const gameOverDialog = document.getElementById('game-over-dialog');
-    const playAgainBtn = document.getElementById('play-again-btn');
-    // Explicitly set the dialog to be visible
-    playerDialog.style.display = 'flex';
-    
-    // Hide the game container until player enters name
-    if (gameContainer) {
-        gameContainer.style.display = 'none';
+class GameInitializer {
+    constructor() {
+        // Cache DOM elements
+        this.playerDialog = document.getElementById('player-dialog');
+        this.playerNameInput = document.getElementById('player-name-input');
+        this.startGameBtn = document.getElementById('start-game-btn');
+        this.gameContainer = document.querySelector('.game-container');
+        this.gameOverDialog = document.getElementById('game-over-dialog');
+        this.playAgainBtn = document.getElementById('play-again-btn');
+        
+        // Game canvas settings
+        this.canvasWidth = 800;
+        this.canvasHeight = 600;
+        
+        // Initialize the game setup
+        this.init();
     }
-    
-    // Set focus on the input field
-    playerNameInput.focus();
-    
-    // Input validation for letters only
-    playerNameInput.addEventListener('input', function(event) {
-        // Remove any non-letter characters
-        this.value = this.value.replace(/[^A-Za-z]/g, '');
-        
-        // Ensure max length of 12
-        if (this.value.length > 12) {
-            this.value = this.value.substring(0, 12);
-        }
-    });
-    
-    // Start game when button is clicked
-    startGameBtn.addEventListener('click', function() {
-        if (validatePlayerName()) {
-            startGame();
-        }
-    });
-    
-    // Allow pressing Enter to start the game
-    playerNameInput.addEventListener('keypress', function(event) {
-        if (event.key === 'Enter' && validatePlayerName()) {
-            startGame();
-        }
-    });
 
-    // Validate player name
-    function validatePlayerName() {
-        const name = playerNameInput.value.trim();
-        
-        // Check if name contains only letters
+    init() {
+        // Set initial UI state
+        this.setupInitialUI();
+        // Bind event listeners
+        this.setupEventListeners();
+    }
+
+    setupInitialUI() {
+        // Show player dialog
+        this.playerDialog.style.display = 'flex';
+        // Hide game container initially
+        if (this.gameContainer) {
+            this.gameContainer.style.display = 'none';
+        }
+        // Focus on name input
+        this.playerNameInput.focus();
+    }
+
+    setupEventListeners() {
+        // Input validation for player name
+        this.playerNameInput.addEventListener('input', this.handleNameInput.bind(this));
+        // Start game button click
+        this.startGameBtn.addEventListener('click', this.handleStartClick.bind(this));
+        // Enter key to start game
+        this.playerNameInput.addEventListener('keypress', this.handleEnterKey.bind(this));
+    }
+
+    handleNameInput(event) {
+        // Remove non-letter characters and limit length
+        const input = event.target;
+        input.value = input.value.replace(/[^A-Za-z]/g, '').substring(0, 12);
+    }
+
+    handleStartClick() {
+        if (this.validatePlayerName()) {
+            this.startGame();
+        }
+    }
+
+    handleEnterKey(event) {
+        if (event.key === 'Enter' && this.validatePlayerName()) {
+            this.startGame();
+        }
+    }
+
+    validatePlayerName() {
+        const name = this.playerNameInput.value.trim();
         const validNameRegex = /^[A-Za-z]+$/;
         
+        // Allow empty name (will use default) or valid name
         if (!validNameRegex.test(name) && name !== '') {
-            // Show error message
             alert('Please use only letters for your name.');
             return false;
         }
-        
         return true;
     }
-    
-// Start the game
-function startGame() {
-    let playerName = playerNameInput.value.trim();
-    
-    // Use default name if empty
-    if (!playerName) {
-        playerName = "Player";
+
+    createGameCanvas() {
+        // Create canvas element if it doesn't exist
+        if (!document.getElementById('gameCanvas')) {
+            const canvas = document.createElement('canvas');
+            canvas.id = 'gameCanvas';
+            canvas.width = this.canvasWidth;
+            canvas.height = this.canvasHeight;
+            this.gameContainer.appendChild(canvas);
+            return canvas;
+        }
     }
-    
-    // Show the game container
-    if (gameContainer) {
-        gameContainer.style.display = 'block';
-        
-        // Add a brief delay before adding the active class for transition
-        setTimeout(() => {
-            gameContainer.classList.add('active');
+
+    setupAudio(game) {
+        // Enable audio with user interaction
+        const enableAudio = () => {
+            if (game.soundManager) {
+                game.soundManager.playMusic('game-music', 0.3);
+                // Remove listeners after first interaction
+                ['click', 'keydown', 'touchstart'].forEach(event => 
+                    document.removeEventListener(event, enableAudio));
+            }
+        };
+
+        // Add listeners for user interaction
+        ['click', 'keydown', 'touchstart'].forEach(event => 
+            document.addEventListener(event, enableAudio));
+    }
+
+    setupPerformanceMonitoring() {
+        const frameHistory = [];
+        const frameHistorySize = 60; // Monitor 60 frames
+        let lastFrameTime = performance.now();
+
+        const checkPerformance = () => {
+            const now = performance.now();
+            const frameDuration = now - lastFrameTime;
+            lastFrameTime = now;
             
-            // Add game-active class to body for positioning the title
-            document.body.classList.add('game-active');
-            
-            // Create canvas if it doesn't exist
-            if (!document.getElementById('gameCanvas')) {
-                const canvas = document.createElement('canvas');
-                canvas.id = 'gameCanvas';
-                canvas.width = 800;  // Set appropriate size
-                canvas.height = 600;
-                gameContainer.appendChild(canvas);
+            // Track frame durations
+            frameHistory.push(frameDuration);
+            if (frameHistory.length > frameHistorySize) {
+                frameHistory.shift();
             }
             
-            // Start the game with the player name
-            const game = new Game(playerName);
-            
-            // Store game instance on window to prevent garbage collection
-            window.gameInstance = game;
-            
-            // add enableAudio here
-            // Enable audio with user interaction (add this code here)
-            function enableAudio() {
-                if (window.gameInstance && window.gameInstance.soundManager) {
-                    // Start background music
-                    window.gameInstance.soundManager.playMusic('game-music', 0.3);
-                    
-                    // Clean up event listeners
-                    document.removeEventListener('click', enableAudio);
-                    document.removeEventListener('keydown', enableAudio);
-                    document.removeEventListener('touchstart', enableAudio);
+            // Calculate and check average FPS
+            if (frameHistory.length === frameHistorySize) {
+                const avgDuration = frameHistory.reduce((sum, val) => sum + val, 0) / frameHistorySize;
+                const avgFps = 1000 / avgDuration;
+                
+                if (avgFps < 45) {
+                    console.warn(`Performance warning: Average FPS: ${avgFps.toFixed(1)}`);
                 }
             }
             
-            // Add event listeners for user interaction to enable audio
-            document.addEventListener('click', enableAudio);
-            document.addEventListener('keydown', enableAudio);
-            document.addEventListener('touchstart', enableAudio);
-            
+            requestAnimationFrame(checkPerformance);
+        };
 
-            // Start monitoring performance
-            setupPerformanceMonitoring();
-            
-            // Start the game
-            game.start();
-        }, 100);
-    }
-    
-    // Hide the dialog
-    playerDialog.style.display = 'none';
-}
-
-// Add performance monitoring
-function setupPerformanceMonitoring() {
-    let lastFrameTime = performance.now();
-    let frameHistory = [];
-    let frameHistorySize = 60; // Keep track of 60 frames
-    
-    function checkPerformance() {
-        const now = performance.now();
-        const frameDuration = now - lastFrameTime;
-        lastFrameTime = now;
-        
-        // Store frame duration
-        frameHistory.push(frameDuration);
-        if (frameHistory.length > frameHistorySize) {
-            frameHistory.shift();
-        }
-        
-        // Calculate average FPS over recorded frames
-        if (frameHistory.length === frameHistorySize) {
-            const avgDuration = frameHistory.reduce((sum, val) => sum + val, 0) / frameHistory.length;
-            const avgFps = 1000 / avgDuration;
-            
-            // Log to console if poor performance detected
-            if (avgFps < 45) {
-                console.warn(`Performance warning: Average FPS: ${avgFps.toFixed(1)}`);
-            }
-        }
-        
         requestAnimationFrame(checkPerformance);
     }
-    
-    requestAnimationFrame(checkPerformance);
+
+    startGame() {
+        // Get player name or use default
+        const playerName = this.playerNameInput.value.trim() || 'Player';
+        
+        if (this.gameContainer) {
+            // Show game container
+            this.gameContainer.style.display = 'block';
+            
+            // Add slight delay for transitions
+            setTimeout(() => {
+                this.gameContainer.classList.add('active');
+                document.body.classList.add('game-active');
+                
+                // Setup game canvas
+                this.createGameCanvas();
+                
+                // Initialize game
+                const game = new Game(playerName);
+                window.gameInstance = game;
+                
+                // Setup audio and performance monitoring
+                this.setupAudio(game);
+                this.setupPerformanceMonitoring();
+                
+                // Start the game
+                game.start();
+            }, 100);
+        }
+        
+        // Hide the player dialog
+        this.playerDialog.style.display = 'none';
+    }
 }
 
-
-});
+// Initialize game when DOM is ready
+document.addEventListener('DOMContentLoaded', () => new GameInitializer());

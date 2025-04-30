@@ -6,13 +6,45 @@ import { GamePhysics } from './GamePhysics.js';
 import { SoundManager } from './SoundManager.js'; // Add this import
 
 class Game {
+    // Class-level constants
+    static CONSTANTS = {
+        // Game setup
+        BOUNDARY_OFFSET: 100,
+        INITIAL_RADIUS: 15,
+        BOT_COUNT: 19,
+        
+        // Timing
+        FPS: 60,
+        TIMESTEP: 1/60,
+        MAX_FRAME_TIME: 200,
+        COUNTDOWN_TIME: 3,
+        
+        // Gameplay
+        ABSORB_COOLDOWN: 3,
+        INITIAL_VELOCITY: 5,
+        BASE_SCORE: 2,
+        
+        // Particles
+        PARTICLE_POOL_SIZE: 500,
+        PARTICLE_MIN_SIZE: 2,
+        PARTICLE_MAX_SIZE: 4,
+        PARTICLE_MIN_LIFE: 0.5,
+        PARTICLE_MAX_LIFE: 1.0,
+        
+        // Audio
+        MUSIC_VOLUME: 0.3,
+        FADE_DURATION: 2000
+    };
+
     constructor(playerName) {
-        // Existing properties
+        // Canvas setup
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
         this.width = this.canvas.width;
         this.height = this.canvas.height;
-        this.boundaryOffset = 100;
+        this.boundaryOffset = Game.CONSTANTS.BOUNDARY_OFFSET;
+        
+        // Game state
         this.balls = [];
         this.player = null;
         this.gameOver = false;
@@ -20,49 +52,47 @@ class Game {
         this.allPlayers = [];
         this.playerName = playerName || "Player";
         this.usedColors = [];
-        
-        // Make Bot class available to GamePhysics
         this.Bot = Bot;
         
         // Game timing properties
         this.gameStarted = false;
-        this.countdownValue = 3;
-        this.gameTime = 0; // Time in seconds
-        
-        // Performance optimization properties
+        this.countdownValue = Game.CONSTANTS.COUNTDOWN_TIME;
+        this.gameTime = 0;
         this.lastTimestamp = 0;
-        this.fixedDeltaTime = 1000 / 60; // Target 60 FPS for physics
+        this.fixedDeltaTime = 1000 / Game.CONSTANTS.FPS;
         this.frameCount = 0;
         this.fps = 0;
         
+        // Game mechanics
+        this.countdownComplete = false;
+        this.absorbCooldownTime = Game.CONSTANTS.ABSORB_COOLDOWN;
+        
         // Fixed timestep properties
         this.accumulator = 0;
-        this.timeStep = 1 / 60; // Fixed physics timestep in seconds
+        this.timeStep = Game.CONSTANTS.TIMESTEP;
         
-        // Object pools
+        // Initialize systems
         this.initObjectPools();
         
-        // Create the sound manager
+        // Create managers and subsystems
         this.soundManager = new SoundManager();
-        // Start background music with lower volume (it's already in your preloadSounds)
-        this.soundManager.playMusic('music', 0.3);
+        this.soundManager.playMusic('music', Game.CONSTANTS.MUSIC_VOLUME);
         
-        // Create instances of the renderer and UI
         this.renderer = new GameRenderer(this);
         this.ui = new GameUI(this);
-        this.physics = new GamePhysics(this); // Create physics instance
+        this.physics = new GamePhysics(this);
         
-        // Initialize the game
+        // Initialize game
         this.initGame();
         
-        // Bind methods to preserve context
+        // Bind animation method
         this.animate = this.animate.bind(this);
     }
-    
+    ///// Particle Pools. 
     initObjectPools() {
-        // Particle pool
+        // Initialize particle pool
         this.particlePool = [];
-        for (let i = 0; i < 500; i++) {
+        for (let i = 0; i < Game.CONSTANTS.PARTICLE_POOL_SIZE; i++) {
             this.particlePool.push({
                 active: false,
                 x: 0,
@@ -77,230 +107,275 @@ class Game {
                 speedY: 0,
                 reset: function() {
                     this.active = false;
+                    this.size = 0;
+                    this.life = 0;
+                    this.maxLife = 0;
+                    this.speedX = 0;
+                    this.speedY = 0;
                 }
             });
         }
     }
     
-    initGame() {
-        // Create player with a unique color
-        const playerPosition = this.physics.getRandomPosition(15);
-        const playerColor = this.getUniqueColor();
+    /**
+     * Initialize a new ball with common properties
+     * @param {Ball} ball - Ball instance to initialize
+     * @param {Object} position - Starting position {x, y}
+     * @param {number} initialSpeed - Initial velocity multiplier
+     */
+    initializeBall(ball, position, initialSpeed = 5) {
+        // Set initial position
+        ball.x = position.x;
+        ball.y = position.y;
+        
+        // Store previous position for interpolation
+        ball.prevX = position.x;
+        ball.prevY = position.y;
+        
+        // Set initial random velocity
+        ball.velocityX = (Math.random() - 0.5) * initialSpeed;
+        ball.velocityY = (Math.random() - 0.5) * initialSpeed;
+        
+        // Initialize absorption properties
+        ball.canAbsorb = false;
+        ball.absorbCooldown = 0;
+        
+        // Add to collections
+        this.balls.push(ball);
+        this.allPlayers.push(ball);
+    }
 
-        // player is initialized 
-        this.player = new Player(playerPosition.x, playerPosition.y, 15, playerColor, this.playerName, this.canvas);
-       
-        this.balls.push(this.player);
-        this.allPlayers.push(this.player);
-        
-        // Update player name in display using UI
-        this.ui.updatePlayerDisplay(this.playerName);
-        
-        // Create bots with unique colors
-        for (let i = 0; i < 18; i++) {
-           
-            const position = this.physics.getRandomPosition(15);
-            const botColor = this.getUniqueColor();
-
-            //Bot is initialized
-            const bot = new Bot(position.x, position.y, 15, botColor, this.canvas);
-            
-            // Store previous position for interpolation
-            bot.prevX = bot.x;
-            bot.prevY = bot.y;
-            
-            this.balls.push(bot);
-            this.allPlayers.push(bot);
-        }
-        
-        // Update UI elements
-        this.ui.updatePlayerCount();
-        this.ui.updateLeaderboard();
+    /**
+ * Initialize game state and create initial players
+ */
+initGame() {
+    // Create player with a unique color
+    const playerPosition = this.physics.getRandomPosition(Game.CONSTANTS.INITIAL_RADIUS);
+    const playerColor = this.getColor();
+    
+    // Initialize player with initial movement disabled
+    this.player = new Player(
+        playerPosition.x,
+        playerPosition.y,
+        Game.CONSTANTS.INITIAL_RADIUS,
+        playerColor,
+        this.playerName,
+        this.canvas
+    );
+    this.initializeBall(this.player, playerPosition, Game.CONSTANTS.INITIAL_VELOCITY);
+    
+    // Update player name in display
+    this.ui.updatePlayerDisplay(this.playerName);
+    
+    // Create bots with unique colors
+    for (let i = 0; i < Game.CONSTANTS.BOT_COUNT; i++) {
+        const position = this.physics.getRandomPosition(Game.CONSTANTS.INITIAL_RADIUS);
+        const botColor = this.getColor();
+        const bot = new Bot(
+            position.x,
+            position.y,
+            Game.CONSTANTS.INITIAL_RADIUS,
+            botColor,
+            this.canvas
+        );
+        this.initializeBall(bot, position, Game.CONSTANTS.INITIAL_VELOCITY);
     }
     
-    // Get a color that hasn't been used yet
-    getUniqueColor() {
-        // All available colors with their corresponding names
-        const allColors = [
-            '#FF6B6B', '#4ECDC4', '#FFE66D', '#1A535C', '#FF9F1C', 
-            '#7B68EE', '#20BF55', '#EF476F', '#118AB2', '#06D6A0',
-            '#800000', '#9932CC', '#FF8C00', '#008080', '#4B0082',
-            '#FF1493', '#FFD700', '#00CED1', '#8B4513', '#2E8B57'
-        ];
-        
-        // Find colors that haven't been used yet
-        const availableColors = allColors.filter(color => !this.usedColors.includes(color));
-        
-        if (availableColors.length === 0) {
-            // If all colors have been used, reset the used colors
-            this.usedColors = [];
-            return this.getRandomColor();
-        }
-        
-        // Pick a random available color
-        const randomIndex = Math.floor(Math.random() * availableColors.length);
-        const selectedColor = availableColors[randomIndex];
-        
-        // Mark this color as used
-        this.usedColors.push(selectedColor);
-        
-        return selectedColor;
-    }
+    // Update UI elements
+    this.ui.updatePlayerCount();
+    this.ui.updateLeaderboard();
     
-    // Fallback color method
-    getRandomColor() {
+    // Set initial game state
+    this.gameOver = false;
+    this.playerLost = false;
+    this.gameStarted = false;
+    this.isCountingDown = true;
+    this.countdownValue = Game.CONSTANTS.COUNTDOWN_TIME;
+    
+    // Start physics immediately but without absorption
+    this.physics.enabled = true;
+    this.startCountdown();
+}
+    
+    startCountdown() {
+        // Initialize countdown state
+        this.countdownValue = 3;
+        this.isCountingDown = true;
+        
+        // Play countdown sound
+        this.soundManager.play('countdown');
+        
+        // Start movement immediately
+        requestAnimationFrame(this.animate);
+
+        // Use UI to handle visual countdown
+        this.ui.startCountdown(() => {
+            // Update game state
+            this.isCountingDown = false;
+            this.countdownComplete = true;
+            this.gameStarted = true;
+            this.gameStartTime = Date.now();
+            
+            // Enable absorption for all balls
+            this.balls.forEach(ball => {
+                ball.canAbsorb = true;
+                ball.absorbCooldown = 0;
+            });
+            
+            // Play start sound
+            this.soundManager.play('start');
+        });
+    }
+
+        /**
+     * Unified color management
+     * @returns {string} A hex color code
+     */
+    getColor() {
         const colors = [
             '#FF6B6B', '#4ECDC4', '#FFE66D', '#1A535C', '#FF9F1C', 
             '#7B68EE', '#20BF55', '#EF476F', '#118AB2', '#06D6A0',
             '#800000', '#9932CC', '#FF8C00', '#008080', '#4B0082',
             '#FF1493', '#FFD700', '#00CED1', '#8B4513', '#2E8B57'
         ];
+        
+        // Try to get unique color first
+        const availableColors = colors.filter(color => !this.usedColors.includes(color));
+        if (availableColors.length > 0) {
+            const color = availableColors[Math.floor(Math.random() * availableColors.length)];
+            this.usedColors.push(color);
+            return color;
+        }
+        
+        // If no unique colors left, reset and get random
+        this.usedColors = [];
         return colors[Math.floor(Math.random() * colors.length)];
     }
-    
-    // Use UI to handle countdown
-    startCountdown() {
-        this.soundManager.play('countdown'); // Play countdown sound
+
+    /**
+ * Handles core game update logic
+ * @param {number} deltaTime - Time since last update in seconds
+ */
+updateGame(deltaTime) {
+    try {
+        // Physics updates happen regardless of game state
+        this.physics.update(deltaTime);
         
-        this.ui.startCountdown(() => {
-            this.gameStarted = true;
-            this.gameStartTime = Date.now(); // Record start time for timer
-            this.soundManager.play('start'); // Play start sound when countdown ends
-        });
+        // Update cooldowns only during active gameplay
+        if (this.gameStarted && !this.isCountingDown) {
+            this.updateCooldowns(deltaTime);
+        }
+
+        // Always update particles
+        this.physics.updateParticles(deltaTime);
+    } catch (error) {
+        console.error("Error in game update:", error);
     }
-    
-    // Improved game loop with fixed timestep
-    animate(timestamp) {
-        // Calculate the actual delta time since last frame
-        if (!this.lastTimestamp) this.lastTimestamp = timestamp;
-        const frameTime = timestamp - this.lastTimestamp;
+}
+
+/**
+ * Updates absorption cooldowns for all balls
+ * @param {number} deltaTime - Time since last update
+ */
+updateCooldowns(deltaTime) {
+    this.balls.forEach(ball => {
+        if (ball.updateCooldown) {
+            ball.updateCooldown(deltaTime);
+        }
+    });
+}
+
+/**
+ * Checks and handles game over conditions
+ */
+checkGameOver() {
+    if (this.gameOver) return;
+
+    const activeBalls = this.balls.filter(ball => ball.active).length;
+    if (activeBalls <= 1) {
+        this.gameOver = true;
+        const winner = activeBalls === 1 ? this.balls.find(ball => ball.active) : null;
+        this.ui.showGameOverMessage(winner);
+        this.soundManager.play('gameOver');
+        this.soundManager.fadeSound('music', 0, 2000);
+    }
+}
+
+
+/**
+ * Main animation loop
+ * @param {number} timestamp - Current timestamp from requestAnimationFrame
+ */
+animate = (timestamp) => {
+    try {
+        // Initialize timestamp on first frame
+        if (!this.lastTimestamp) {
+            this.lastTimestamp = timestamp;
+        }
+        
+        // Calculate and cap delta time
+        const frameTime = Math.min(
+            timestamp - this.lastTimestamp, 
+            Game.CONSTANTS.MAX_FRAME_TIME
+        );
+        const deltaTime = frameTime / 1000;
         this.lastTimestamp = timestamp;
         
-        // Cap the delta time to avoid spiral of death on slow devices
-        const cappedFrameTime = Math.min(frameTime, 200); // Cap at 200ms (5fps minimum)
-        
-        // Convert to seconds for physics calculations
-        const deltaTime = cappedFrameTime / 1000;
-        
-        // Update FPS counter using UI
+        // Update FPS counter
         this.ui.updateFpsCounter(timestamp);
         
-        // Clear canvas and draw boundary using renderer
-        this.renderer.clear();
-        this.renderer.drawBoundary();
+        // Fixed timestep accumulation
+        this.accumulator += deltaTime;
         
-        // Only update game logic if countdown is finished
-        if (this.gameStarted) {
-            // Update game time using UI
-            this.ui.updateGameTime();
-            
-            // Accumulate time for fixed physics updates
-            this.accumulator += deltaTime;
-            
-            // Run physics updates at fixed timestep intervals
-            while (this.accumulator >= this.timeStep) {
-                try {
-                    // Use GamePhysics for physics updates
-                    this.physics.update(this.timeStep);
-                } catch (error) {
-                    console.error("Error in physics update:", error);
-                }
-                this.accumulator -= this.timeStep;
-            }
-            
-            // Calculate interpolation factor for smooth rendering
-            const interpolation = this.accumulator / this.timeStep;
-            
-            // Render with interpolation
-            this.renderer.render(interpolation);
-            
-            // Check if player just lost (but don't end the game)
-            if (!this.playerLost && this.player && !this.player.active) {
-                this.playerLost = true;
-                this.ui.showPlayerLostMessage();
-                this.ui.updatePlayerDisplay(this.playerName + " (Spectating)");
-                this.soundManager.play('playerLost'); // Play player lost sound
-            }
-            
-            // Check for game over
-            const activeBalls = this.balls.filter(ball => ball.active).length;
-            if (!this.gameOver && activeBalls <= 1) {
-                this.gameOver = true;
-                this.soundManager.play('gameOver'); // Play game over sound
-                
-                if (activeBalls === 1) {
-                    this.ui.showGameOverMessage(this.balls.find(ball => ball.active));
-                } else {
-                    this.ui.showGameOverMessage(null);
-                    }
-                    
-                // Fade out the music over 2 seconds
-                if (this.soundManager && this.soundManager.hasSound('music')) {
-                    this.soundManager.fadeSound('music', 0, 2000);
-                    }
-
-            }
-        } else {
-            // Just render static objects during countdown
-            this.renderer.renderStatic();
+        // Update physics at fixed timestep
+        while (this.accumulator >= this.timeStep) {
+            this.updateGame(this.timeStep);
+            this.accumulator -= this.timeStep;
         }
         
-        // Update particles using physics
-        this.physics.updateParticles(deltaTime);
-        this.renderer.renderParticles();
+        // Calculate interpolation for smooth rendering
+        const interpolation = this.accumulator / this.timeStep;
         
-        // Continue animation unless the game is completely over
+        // Render frame
+        this.renderFrame(interpolation);
+        
+        // Continue animation if game is not over
         if (!this.gameOver) {
-            requestAnimationFrame(this.animate);
-        } else {
-            console.log("Game over - animation stopped");
+            this.animationFrameId = requestAnimationFrame(this.animate);
         }
+    } catch (error) {
+        console.error('Animation loop error:', error);
+        this.handleAnimationError();
+    }
+}
+
+/**
+ * Handles rendering for current frame
+ * @param {number} interpolation - Interpolation factor for smooth rendering
+ */
+renderFrame(interpolation) {
+    this.renderer.clear();
+    this.renderer.drawBoundary();
+    
+    if (this.gameStarted) {
+        this.ui.updateGameTime();
+        this.renderer.render(interpolation);
+        this.checkGameOver();
+    } else {
+        this.renderer.renderStatic();
     }
     
-    // Object pooling for particles - keep this in Game since it's creation
-    // rather than physics simulation
-    createParticle(x, y, color, size = 3, maxLife = 1.0) {
-        // Find an available particle from the pool
-        const particle = this.particlePool.find(p => !p.active);
-        if (!particle) return; // Pool exhausted
-        
-        // Set up the particle
-        particle.active = true;
-        particle.x = x;
-        particle.y = y;
-        particle.dirX = (Math.random() - 0.5) * 2;
-        particle.dirY = (Math.random() - 0.5) * 2;
-        particle.size = size;
-        particle.color = color;
-        particle.life = maxLife;
-        particle.maxLife = maxLife;
-        particle.speedX = Math.random() * 3 + 2;
-        particle.speedY = Math.random() * 3 + 2;
-        
-        return particle;
-    }
-    
-    // Add merge animation effect - kept in Game since it's object creation
-    addMergeAnimation(x, y, color, size) {
-        // Create particles for merging effect
-        for (let i = 0; i < 20; i++) {
-            const particleSize = Math.random() * (size / 10) + 2;
-            const lifespan = Math.random() * 1 + 0.5;
-            this.createParticle(x, y, color, particleSize, lifespan);
-        }
-        
-        // Play merge sound
-        //this.soundManager.play('merge.mp3');
-                // Play merge sound with debug info
-            if (this.soundManager) {
-                console.log("Calling sound manager for merge sound");
-                this.soundManager.playWithDebug('merge');
-               // ./sounds/merge.mp3
-            } else {
-                console.error("No soundManager available");
-            }
-    }
-    
+    this.renderer.renderParticles();
+}
+/**
+ * Handles animation loop errors
+ */
+handleAnimationError() {
+    this.gameOver = true;
+    this.soundManager?.fadeSound('music', 0, Game.CONSTANTS.FADE_DURATION);
+    this.ui?.showError('Game error occurred. Please restart.');
+}
+
     start() { // this is where the game is actually started. 
         console.log("Game starting...");
     
@@ -325,58 +400,51 @@ class Game {
     } 
 
 
-    restart() {
-        // Stop current animation frame
+        /**
+     * Reset all game state properties
+     * @param {boolean} [fullReset=true] - If true, also resets event listeners
+     */
+    resetGameState(fullReset = true) {
+        // Stop animation
         if (this.animationFrameId) {
             cancelAnimationFrame(this.animationFrameId);
             this.animationFrameId = null;
         }
         
-        // Reset game state
+        // Reset game flags
         this.gameOver = false;
         this.playerLost = false;
         this.gameStarted = false;
         this.balls = [];
         this.usedColors = [];
         
-        // Reset timing properties
+        // Reset timing
         this.lastTimestamp = 0;
         this.accumulator = 0;
         this.gameTime = 0;
         
-        // Reset UI and leaderboard
-        if (this.ui) {
-            this.ui.resetLeaderboard();
-        }
-
-        // Reinitialize the game
-        this.initGame();
-        
-        // Reset and restart music
-        if (this.soundManager && this.soundManager.hasSound('music')) {
-            this.soundManager.playMusic('music', 0.3);
+        // Reset scores
+        if (this.player) {
+            this.player.score = 0;
         }
         
-        // Update UI elements
-        this.ui.updatePlayerCount();
-        this.ui.updateLeaderboard();
-
-        // Start the countdown and game loop
-        this.start();
-    }
-
-    // Add these methods to your Game class
-    // Call this whenever a player scores points
-    updatePlayerScore(player, points) {
-        // Update the player's score
-        player.score += points;
+        // Handle sound
+        if (this.soundManager) {
+            this.soundManager.fadeSound('music', 0, 1000);
+        }
         
-        // Force leaderboard update
-        if (this.ui) {
-            this.ui.updateLeaderboard(true);
+        // Clean up events if needed
+        if (fullReset) {
+            document.removeEventListener('keydown', this.handleKeyDown);
+            document.removeEventListener('keyup', this.handleKeyUp);
         }
     }
 
+     /**
+     * Handles absorption between two players/balls
+     * @param {Player|Bot} eaterPlayer - The ball doing the absorbing
+     * @param {Player|Bot} eatenPlayer - The ball being absorbed
+     */
     // Updated handlePlayerAbsorption method in game.js
     handlePlayerAbsorption(eaterPlayer, eatenPlayer) {
         // called in gamePhysics.resolveCollision
@@ -415,40 +483,14 @@ class Game {
         }
     }
 
-    cleanup() {
-        // Stop animation frame
-        if (this.animationFrameId) {
-            cancelAnimationFrame(this.animationFrameId);
-            this.animationFrameId = null;
-        }
-        
-        // Clear balls array
-        this.balls = [];
-        
-        // Reset game state
-        this.gameOver = false;
-        this.playerLost = false;
-        this.gameStarted = false;
-        
-        // Reset scores
-        if (this.player) {
-            this.player.score = 0;
-        }
-        
-        // Stop music
-        if (this.soundManager) {
-            this.soundManager.fadeSound('music', 0, 1000);
-        }
-        
-        // Remove any game-specific event listeners
-        this.removeEventListeners();
+    restart() {
+        this.resetGameState(false);  // Don't reset event listeners on restart
+        this.initGame();
+        this.start();
     }
 
-    removeEventListeners() {
-        // Remove any game-specific event listeners here
-        document.removeEventListener('keydown', this.handleKeyDown);
-        document.removeEventListener('keyup', this.handleKeyUp);
-        // Add any other event listener cleanup
+    cleanup() {
+        this.resetGameState(true);  // Full reset including event listeners
     }
 } // Close the Game class definition
     

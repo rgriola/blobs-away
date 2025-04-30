@@ -1,24 +1,10 @@
-// Add this helper function at the top of the file, outside the class
-function lightenColor(hexColor, percent) {
-    // Convert hex to RGB
-    const r = parseInt(hexColor.substr(1, 2), 16);
-    const g = parseInt(hexColor.substr(3, 2), 16);
-    const b = parseInt(hexColor.substr(5, 2), 16);
-    
-    // Lighten
-    const lightenedR = Math.min(255, Math.floor(r + (255 - r) * (percent / 100)));
-    const lightenedG = Math.min(255, Math.floor(g + (255 - g) * (percent / 100)));
-    const lightenedB = Math.min(255, Math.floor(b + (255 - b) * (percent / 100)));
-    
-    // Convert back to hex
-    return '#' + 
-        lightenedR.toString(16).padStart(2, '0') +
-        lightenedG.toString(16).padStart(2, '0') +
-        lightenedB.toString(16).padStart(2, '0');
-}
+
+import { lightenColor } from './utils/ColorUtils.js'; // Import the helper function
 
 class Ball {
     constructor(x, y, radius, color, canvas) {
+        this.deBug = false; // Set debug mode to false by default
+        
         this.x = x;
         this.y = y;
         this.radius = radius;
@@ -34,6 +20,11 @@ class Ball {
         // For interpolation - add these without changing other functionality
         this.prevX = x;
         this.prevY = y;
+
+        this.canAbsorb = false; // Initially can't absorb during countdown
+        this.absorbCooldown = 0; // Cooldown timer
+
+        this.lightenColor = lightenColor; // Store the function for later use
     }
 
     setRandomDirection() {
@@ -42,18 +33,18 @@ class Ball {
         this.velocityY = Math.sin(angle);
     }
 
-    // Original draw method preserved
+        // Original draw method preserved
     draw(ctx) {
-        if (!this.active) return;
         
+    if (!this.active) return;     
         // Use drawAt with the current position
         this.drawAt(ctx, this.x, this.y);
 
         // Add debug visualization if debug mode is enabled
-    if (this.canvas.debugMode) {
+        if (this.canvas.debugMode) {
         this.drawDebug(ctx);
-    }
-    }
+        }
+    } 
 
 
     // Add drawAt method for interpolation compatibility without breaking existing code
@@ -131,7 +122,9 @@ class Ball {
     // Do not handle boundary collisions here - GamePhysics will handle that
 }
 
-    checkBoundaryCollisions() {
+    // Add compatibility method for Game class
+    handleBoundaryCollision() {
+
         // Use canvas dimensions instead of hardcoded values
         const canvasWidth = this.canvas.width;
         const canvasHeight = this.canvas.height;
@@ -162,11 +155,6 @@ class Ball {
             this.velocityY = -this.velocityY;
         }
     }
-    
-    // Add compatibility method for Game class
-    handleBoundaryCollision() {
-        this.checkBoundaryCollisions();
-    }
 
     collidesWith(otherBall) {
         if (!this.active || !otherBall.active) return false;
@@ -180,6 +168,7 @@ class Ball {
 
     merge(otherBall) {
         // Calculate the new size based on area
+        // ball is the eaten ball. 
         const thisArea = Math.PI * this.radius * this.radius;
         const otherArea = Math.PI * otherBall.radius * otherBall.radius;
         const combinedArea = thisArea + otherArea;
@@ -191,14 +180,20 @@ class Ball {
         
         // Add score from the other ball
         this.addScore(otherBall.score || 1);
-    }
+
+            // Deactivate the absorbed ball
+            otherBall.active = false;
+        
+       // 
+    } //////////////////////
     
     // Add helper method for score - makes the Ball class self-contained
     addScore(points) {
         this.score += points;
-    }
+        } ////////////////////
 
-        // Add this method after the draw methods
+
+    // Add this method after the draw methods
     drawDebug(ctx) {
         if (!this.active) return;
         
@@ -225,49 +220,61 @@ class Ball {
         ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
         ctx.fillStyle = 'red';
         ctx.fill();
-    }
+    } ///////////////////
+
+      // Add method to handle absorption cooldown
+    updateCooldown(deltaTime) {
+        if (this.absorbCooldown > 0) {
+            this.absorbCooldown -= deltaTime;
+            if (this.absorbCooldown <= 0) {
+                this.canAbsorb = true;
+            }
+        }
+    } //////////////////////
+
 
     // Add this method after checkBoundaryCollisions()
-validatePosition() {
-    const canvasWidth = this.canvas.width;
-    const canvasHeight = this.canvas.height;
-    const boundaryOffset = 100;
-    const bottomOffset = boundaryOffset + 50;
-    
-    // Check for invalid positions
-    if (isNaN(this.x) || isNaN(this.y)) {
-        console.warn('Invalid ball position detected:', this);
-        this.x = canvasWidth / 2;
-        this.y = canvasHeight / 2;
-        this.velocityX = 0;
-        this.velocityY = 0;
-        return false;
-    }
-    
-    // Check for stuck balls
-    if (this.x - this.radius <= boundaryOffset || 
-        this.x + this.radius >= canvasWidth - boundaryOffset ||
-        this.y - this.radius <= boundaryOffset ||
-        this.y + this.radius >= canvasHeight - bottomOffset) {
+    validatePosition() {
+        const canvasWidth = this.canvas.width;
+        const canvasHeight = this.canvas.height;
+        const boundaryOffset = 100;
+        const bottomOffset = boundaryOffset + 50;
         
-        // Log the issue
-        console.log('Ball touching boundary:', {
-            x: this.x,
-            y: this.y,
-            radius: this.radius,
-            velocity: {x: this.velocityX, y: this.velocityY}
-        });
-        
-        // Add a small impulse if velocity is very low
-        const minVelocity = 0.5;
-        if (Math.abs(this.velocityX) < minVelocity && Math.abs(this.velocityY) < minVelocity) {
-            this.velocityX += (Math.random() - 0.5) * 2;
-            this.velocityY += (Math.random() - 0.5) * 2;
+        // Check for invalid positions
+        if (isNaN(this.x) || isNaN(this.y)) {
+            console.warn('Invalid ball position detected:', this);
+            this.x = canvasWidth / 2;
+            this.y = canvasHeight / 2;
+            this.velocityX = 0;
+            this.velocityY = 0;
+            return false;
         }
-    }
-    
-    return true;
-}
+        
+        // Check for stuck balls
+        if (this.x - this.radius <= boundaryOffset || 
+            this.x + this.radius >= canvasWidth - boundaryOffset ||
+            this.y - this.radius <= boundaryOffset ||
+            this.y + this.radius >= canvasHeight - bottomOffset) {
+            
+            // Log the issue
+            if(this.deBug){
+            console.log('Ball touching boundary:', {
+                x: this.x,
+                y: this.y,
+                radius: this.radius,
+                velocity: {x: this.velocityX, y: this.velocityY}
+            });
+         }
+            
+            // Add a small impulse if velocity is very low
+            const minVelocity = 0.5;
+            if (Math.abs(this.velocityX) < minVelocity && Math.abs(this.velocityY) < minVelocity) {
+                this.velocityX += (Math.random() - 0.5) * 2;
+                this.velocityY += (Math.random() - 0.5) * 2;
+            }
+        }
+        return true;
+    } //////////////////////////////
 
 }
 export { Ball };
