@@ -25,6 +25,7 @@ export class LogoAnimation {
     }
     
     animate() {
+        if (!this.ctx) return;
         this.ctx.clearRect(0, 0, this.width, this.height);
         
         this.ctx.beginPath();

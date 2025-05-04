@@ -23,15 +23,42 @@
             <h2>Enter Ya Name To Play</h2>
             <!-- Update the input element in the player-dialog -->
             <input type="text" id="player-name-input" placeholder="Ya Name" maxlength="12" pattern="[A-Za-z]+" title="Letters only please">
+            
+            <!-- Game options moved before play button -->
+            <div class="game-options">
+                <div class="menu-option">
+                    <label for="board-type">Board Shape:</label>
+                    <select id="board-type">
+                        <option value="rectangle">Rectangle</option>
+                        <option value="circle">Circle</option>
+                        <option value="oval">Oval</option>
+                    </select>
+                </div>
+                
+                <div class="menu-option">
+                    <label for="obstacle-set">Obstacles:</label>
+                    <select id="obstacle-set">
+                        <option value="none">None</option>
+                        <option value="light">Light</option>
+                        <option value="standard">Standard</option>
+                        <option value="heavy">Heavy</option>
+                        <option value="maze">Maze</option>
+                        <option value="random">Random</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Play button after options -->
             <div><button id="start-game-btn">PLAY</button></div>
-        <!-- Controls info as a separate div after dialog-content -->
+            
+            <!-- Controls info as a separate div after dialog-content -->
             <div class="instruction">Use Ye Trackpad or Arrow Keys</div>
             <div class="instruction">Eat Other Blobs</div>
             <div class="instruction">Get Bigger & Fabber</div>
             <div class="instruction">Blob It Your Way!</div>
         </div>
     </div>
-    <div class="game-container">
+    <div id="game-container" class="game-container">
         <div class="scoreboard">
             <div class="player-name">Player: <span id="player-name-display">Player</span></div>
             <div class="score">Score: <span id="player-score">0</span></div>

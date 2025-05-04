@@ -3,46 +3,35 @@ import { Bot } from './bot.js';
 import { GameRenderer } from './GameRenderer.js';
 import { GameUI } from './GameUI.js';
 import { GamePhysics } from './GamePhysics.js';
-import { SoundManager } from './SoundManager.js'; // Add this import
+import { SoundManager } from './SoundManager.js';
+import { GameConfig, getRandomBallColor } from './GameConfig.js';
+import { BoardManager } from './BoardManager.js';
+import { ObstacleManager } from './ObstacleManager.js';
 
 class Game {
-    // Class-level constants
-    static CONSTANTS = {
-        // Game setup
-        BOUNDARY_OFFSET: 100,
-        INITIAL_RADIUS: 15,
-        BOT_COUNT: 19,
-        
-        // Timing
-        FPS: 60,
-        TIMESTEP: 1/60,
-        MAX_FRAME_TIME: 200,
-        COUNTDOWN_TIME: 3,
-        
-        // Gameplay
-        ABSORB_COOLDOWN: 3,
-        INITIAL_VELOCITY: 5,
-        BASE_SCORE: 2,
-        
-        // Particles
-        PARTICLE_POOL_SIZE: 500,
-        PARTICLE_MIN_SIZE: 2,
-        PARTICLE_MAX_SIZE: 4,
-        PARTICLE_MIN_LIFE: 0.5,
-        PARTICLE_MAX_LIFE: 1.0,
-        
-        // Audio
-        MUSIC_VOLUME: 0.3,
-        FADE_DURATION: 2000
-    };
-
-    constructor(playerName) {
+    constructor(playerName, boardType = GameConfig.DEFAULT_BOARD_TYPE, obstacleSet = GameConfig.DEFAULT_OBSTACLE_SET) {
         // Canvas setup
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
         this.width = this.canvas.width;
         this.height = this.canvas.height;
-        this.boundaryOffset = Game.CONSTANTS.BOUNDARY_OFFSET;
+        this.boundaryOffset = GameConfig.BOUNDARY_OFFSET;
+        
+        // Set up board and obstacle managers
+        this.boardType = boardType;
+        this.obstacleSet = obstacleSet;
+        this.boardManager = new BoardManager(this.width, this.height, boardType);
+        // Make sure to pass the canvas element, not just the width/height
+        
+        this.obstacleManager = new ObstacleManager(
+            this.canvas,  // Pass the actual canvas element
+            this.width,
+            this.height,
+            obstacleSet,
+            this.boardManager
+            );
+        
+        this.boardManager.setObstacleManager(this.obstacleManager);
         
         // Game state
         this.balls = [];
@@ -56,27 +45,27 @@ class Game {
         
         // Game timing properties
         this.gameStarted = false;
-        this.countdownValue = Game.CONSTANTS.COUNTDOWN_TIME;
+        this.countdownValue = GameConfig.COUNTDOWN_TIME;
         this.gameTime = 0;
         this.lastTimestamp = 0;
-        this.fixedDeltaTime = 1000 / Game.CONSTANTS.FPS;
+        this.fixedDeltaTime = 1000 / GameConfig.FPS;
         this.frameCount = 0;
         this.fps = 0;
         
         // Game mechanics
         this.countdownComplete = false;
-        this.absorbCooldownTime = Game.CONSTANTS.ABSORB_COOLDOWN;
+        this.absorbCooldownTime = GameConfig.ABSORB_COOLDOWN;
         
         // Fixed timestep properties
         this.accumulator = 0;
-        this.timeStep = Game.CONSTANTS.TIMESTEP;
+        this.timeStep = GameConfig.TIMESTEP;
         
         // Initialize systems
         this.initObjectPools();
         
         // Create managers and subsystems
         this.soundManager = new SoundManager();
-        this.soundManager.playMusic('music', Game.CONSTANTS.MUSIC_VOLUME);
+        this.soundManager.playMusic('music', GameConfig.MUSIC_VOLUME);
         
         this.renderer = new GameRenderer(this);
         this.ui = new GameUI(this);
@@ -92,7 +81,7 @@ class Game {
     initObjectPools() {
         // Initialize particle pool
         this.particlePool = [];
-        for (let i = 0; i < Game.CONSTANTS.PARTICLE_POOL_SIZE; i++) {
+        for (let i = 0; i < GameConfig.PARTICLE_POOL_SIZE; i++) {
             this.particlePool.push({
                 active: false,
                 x: 0,
@@ -136,7 +125,7 @@ class Game {
         ball.velocityX = (Math.random() - 0.5) * initialSpeed;
         ball.velocityY = (Math.random() - 0.5) * initialSpeed;
         
-        // Initialize absorption properties
+        // Initialize absorption properties - explicitly set to false at start
         ball.canAbsorb = false;
         ball.absorbCooldown = 0;
         
@@ -146,61 +135,65 @@ class Game {
     }
 
     /**
- * Initialize game state and create initial players
- */
-initGame() {
-    // Create player with a unique color
-    const playerPosition = this.physics.getRandomPosition(Game.CONSTANTS.INITIAL_RADIUS);
-    const playerColor = this.getColor();
-    
-    // Initialize player with initial movement disabled
-    this.player = new Player(
-        playerPosition.x,
-        playerPosition.y,
-        Game.CONSTANTS.INITIAL_RADIUS,
-        playerColor,
-        this.playerName,
-        this.canvas
-    );
-    this.initializeBall(this.player, playerPosition, Game.CONSTANTS.INITIAL_VELOCITY);
-    
-    // Update player name in display
-    this.ui.updatePlayerDisplay(this.playerName);
-    
-    // Create bots with unique colors
-    for (let i = 0; i < Game.CONSTANTS.BOT_COUNT; i++) {
-        const position = this.physics.getRandomPosition(Game.CONSTANTS.INITIAL_RADIUS);
-        const botColor = this.getColor();
-        const bot = new Bot(
-            position.x,
-            position.y,
-            Game.CONSTANTS.INITIAL_RADIUS,
-            botColor,
+     * Initialize game state and create initial players
+     */
+    initGame() {
+        // Create player with a unique color
+        const playerPosition = this.physics.getRandomPosition(GameConfig.INITIAL_RADIUS);
+        const playerColor = this.getColor();
+        
+        // Initialize player with initial movement disabled
+        this.player = new Player(
+            playerPosition.x,
+            playerPosition.y,
+            GameConfig.INITIAL_RADIUS,
+            playerColor,
+            this.playerName,
             this.canvas
         );
-        this.initializeBall(bot, position, Game.CONSTANTS.INITIAL_VELOCITY);
+        this.initializeBall(this.player, playerPosition, GameConfig.INITIAL_VELOCITY);
+        
+        // Update player name in display
+        this.ui.updatePlayerDisplay(this.playerName);
+        
+        // Create bots with unique colors
+        for (let i = 0; i < GameConfig.BOT_COUNT; i++) {
+            const position = this.physics.getRandomPosition(GameConfig.INITIAL_RADIUS);
+            const botColor = this.getColor();
+            const bot = new Bot(
+                position.x,
+                position.y,
+                GameConfig.INITIAL_RADIUS,
+                botColor,
+                this.canvas
+            );
+            this.initializeBall(bot, position, GameConfig.INITIAL_VELOCITY);
+        }
+        
+        // Update UI elements
+        this.ui.updatePlayerCount();
+        this.ui.updateLeaderboard();
+        
+        // Set initial game state
+        this.gameOver = false;
+        this.playerLost = false;
+        this.gameStarted = false;
+        this.isCountingDown = true;
+        this.countdownValue = GameConfig.COUNTDOWN_TIME;
+        
+        // Start physics immediately but without absorption
+        this.physics.enabled = true;
+        this.startCountdown();
     }
-    
-    // Update UI elements
-    this.ui.updatePlayerCount();
-    this.ui.updateLeaderboard();
-    
-    // Set initial game state
-    this.gameOver = false;
-    this.playerLost = false;
-    this.gameStarted = false;
-    this.isCountingDown = true;
-    this.countdownValue = Game.CONSTANTS.COUNTDOWN_TIME;
-    
-    // Start physics immediately but without absorption
-    this.physics.enabled = true;
-    this.startCountdown();
-}
     
     startCountdown() {
         // Initialize countdown state
-        this.countdownValue = 3;
+        this.countdownValue = GameConfig.COUNTDOWN_TIME;
         this.isCountingDown = true;
+        this.countdownComplete = false; // Explicitly set to false at start
+        
+        console.log("Starting countdown with value:", this.countdownValue);
+        console.log("Countdown status - isCountingDown:", this.isCountingDown, "countdownComplete:", this.countdownComplete);
         
         // Play countdown sound
         this.soundManager.play('countdown');
@@ -212,169 +205,167 @@ initGame() {
         this.ui.startCountdown(() => {
             // Update game state
             this.isCountingDown = false;
-            this.countdownComplete = true;
+            this.countdownComplete = true; // Set to true when complete
             this.gameStarted = true;
             this.gameStartTime = Date.now();
             
-            // Enable absorption for all balls
-            this.balls.forEach(ball => {
+            console.log("Countdown complete! Setting game state:");
+            console.log("isCountingDown:", this.isCountingDown);
+            console.log("countdownComplete:", this.countdownComplete);
+            console.log("gameStarted:", this.gameStarted);
+            
+            // Enable absorption for all balls - make sure this works by logging each ball's state
+            this.balls.forEach((ball, index) => {
                 ball.canAbsorb = true;
                 ball.absorbCooldown = 0;
+                console.log(`Ball ${index} (${ball.name || 'unnamed'}): canAbsorb=${ball.canAbsorb}, cooldown=${ball.absorbCooldown}`);
             });
             
-            // Play start sound
-            this.soundManager.play('start');
+            console.log("Countdown complete! Absorption enabled for all balls.");
+            
+            try {
+                // Play start sound (with error handling)
+                this.soundManager.play('start');
+            } catch (e) {
+                console.warn("Could not play start sound:", e);
+            }
         });
     }
 
-        /**
+    /**
      * Unified color management
      * @returns {string} A hex color code
      */
     getColor() {
-        const colors = [
-            '#FF6B6B', '#4ECDC4', '#FFE66D', '#1A535C', '#FF9F1C', 
-            '#7B68EE', '#20BF55', '#EF476F', '#118AB2', '#06D6A0',
-            '#800000', '#9932CC', '#FF8C00', '#008080', '#4B0082',
-            '#FF1493', '#FFD700', '#00CED1', '#8B4513', '#2E8B57'
-        ];
-        
-        // Try to get unique color first
-        const availableColors = colors.filter(color => !this.usedColors.includes(color));
-        if (availableColors.length > 0) {
-            const color = availableColors[Math.floor(Math.random() * availableColors.length)];
-            this.usedColors.push(color);
-            return color;
-        }
-        
-        // If no unique colors left, reset and get random
-        this.usedColors = [];
-        return colors[Math.floor(Math.random() * colors.length)];
+        // Using the helper function from GameConfig
+        const color = getRandomBallColor(this.usedColors);
+        this.usedColors.push(color);
+        return color;
     }
 
     /**
- * Handles core game update logic
- * @param {number} deltaTime - Time since last update in seconds
- */
-updateGame(deltaTime) {
-    try {
-        // Physics updates happen regardless of game state
-        this.physics.update(deltaTime);
-        
-        // Update cooldowns only during active gameplay
-        if (this.gameStarted && !this.isCountingDown) {
-            this.updateCooldowns(deltaTime);
+     * Handles core game update logic
+     * @param {number} deltaTime - Time since last update in seconds
+     */
+    updateGame(deltaTime) {
+        try {
+            // Physics updates happen regardless of game state
+            this.physics.update(deltaTime);
+            
+            // Update cooldowns only during active gameplay
+            if (this.gameStarted && !this.isCountingDown) {
+                this.updateCooldowns(deltaTime);
+            }
+
+            // Always update particles
+            this.physics.updateParticles(deltaTime);
+        } catch (error) {
+            console.error("Error in game update:", error);
         }
-
-        // Always update particles
-        this.physics.updateParticles(deltaTime);
-    } catch (error) {
-        console.error("Error in game update:", error);
     }
-}
 
-/**
- * Updates absorption cooldowns for all balls
- * @param {number} deltaTime - Time since last update
- */
-updateCooldowns(deltaTime) {
-    this.balls.forEach(ball => {
-        if (ball.updateCooldown) {
-            ball.updateCooldown(deltaTime);
+    /**
+     * Updates absorption cooldowns for all balls
+     * @param {number} deltaTime - Time since last update
+     */
+    updateCooldowns(deltaTime) {
+        this.balls.forEach(ball => {
+            if (ball.updateCooldown) {
+                ball.updateCooldown(deltaTime);
+            }
+        });
+    }
+
+    /**
+     * Checks and handles game over conditions
+     */
+    checkGameOver() {
+        if (this.gameOver) return;
+
+        const activeBalls = this.balls.filter(ball => ball.active).length;
+        if (activeBalls <= 1) {
+            this.gameOver = true;
+            const winner = activeBalls === 1 ? this.balls.find(ball => ball.active) : null;
+            this.ui.showGameOverMessage(winner);
+            this.soundManager.play('gameOver');
+            this.soundManager.fadeSound('music', 0, GameConfig.FADE_DURATION);
         }
-    });
-}
-
-/**
- * Checks and handles game over conditions
- */
-checkGameOver() {
-    if (this.gameOver) return;
-
-    const activeBalls = this.balls.filter(ball => ball.active).length;
-    if (activeBalls <= 1) {
-        this.gameOver = true;
-        const winner = activeBalls === 1 ? this.balls.find(ball => ball.active) : null;
-        this.ui.showGameOverMessage(winner);
-        this.soundManager.play('gameOver');
-        this.soundManager.fadeSound('music', 0, 2000);
     }
-}
 
-
-/**
- * Main animation loop
- * @param {number} timestamp - Current timestamp from requestAnimationFrame
- */
-animate = (timestamp) => {
-    try {
-        // Initialize timestamp on first frame
-        if (!this.lastTimestamp) {
+    /**
+     * Main animation loop
+     * @param {number} timestamp - Current timestamp from requestAnimationFrame
+     */
+    animate = (timestamp) => {
+        try {
+            // Initialize timestamp on first frame
+            if (!this.lastTimestamp) {
+                this.lastTimestamp = timestamp;
+            }
+            
+            // Calculate and cap delta time
+            const frameTime = Math.min(
+                timestamp - this.lastTimestamp, 
+                GameConfig.MAX_FRAME_TIME
+            );
+            const deltaTime = frameTime / 1000;
             this.lastTimestamp = timestamp;
+            
+            // Update FPS counter
+            this.ui.updateFpsCounter(timestamp);
+            
+            // Fixed timestep accumulation
+            this.accumulator += deltaTime;
+            
+            // Update physics at fixed timestep
+            while (this.accumulator >= this.timeStep) {
+                this.updateGame(this.timeStep);
+                this.accumulator -= this.timeStep;
+            }
+            
+            // Calculate interpolation for smooth rendering
+            const interpolation = this.accumulator / this.timeStep;
+            
+            // Render frame
+            this.renderFrame(interpolation);
+            
+            // Continue animation if game is not over
+            if (!this.gameOver) {
+                this.animationFrameId = requestAnimationFrame(this.animate);
+            }
+        } catch (error) {
+            console.error('Animation loop error:', error);
+            this.handleAnimationError();
         }
-        
-        // Calculate and cap delta time
-        const frameTime = Math.min(
-            timestamp - this.lastTimestamp, 
-            Game.CONSTANTS.MAX_FRAME_TIME
-        );
-        const deltaTime = frameTime / 1000;
-        this.lastTimestamp = timestamp;
-        
-        // Update FPS counter
-        this.ui.updateFpsCounter(timestamp);
-        
-        // Fixed timestep accumulation
-        this.accumulator += deltaTime;
-        
-        // Update physics at fixed timestep
-        while (this.accumulator >= this.timeStep) {
-            this.updateGame(this.timeStep);
-            this.accumulator -= this.timeStep;
-        }
-        
-        // Calculate interpolation for smooth rendering
-        const interpolation = this.accumulator / this.timeStep;
-        
-        // Render frame
-        this.renderFrame(interpolation);
-        
-        // Continue animation if game is not over
-        if (!this.gameOver) {
-            this.animationFrameId = requestAnimationFrame(this.animate);
-        }
-    } catch (error) {
-        console.error('Animation loop error:', error);
-        this.handleAnimationError();
     }
-}
 
-/**
- * Handles rendering for current frame
- * @param {number} interpolation - Interpolation factor for smooth rendering
- */
-renderFrame(interpolation) {
-    this.renderer.clear();
-    this.renderer.drawBoundary();
-    
-    if (this.gameStarted) {
-        this.ui.updateGameTime();
-        this.renderer.render(interpolation);
-        this.checkGameOver();
-    } else {
-        this.renderer.renderStatic();
+    /**
+     * Handles rendering for current frame
+     * @param {number} interpolation - Interpolation factor for smooth rendering
+     */
+    renderFrame(interpolation) {
+        this.renderer.clear();
+        this.renderer.drawBoundary();
+        
+        if (this.gameStarted) {
+            this.ui.updateGameTime();
+            this.renderer.render(interpolation);
+            this.checkGameOver();
+        } else {
+            this.renderer.renderStatic();
+        }
+        
+        this.renderer.renderParticles();
     }
-    
-    this.renderer.renderParticles();
-}
-/**
- * Handles animation loop errors
- */
-handleAnimationError() {
-    this.gameOver = true;
-    this.soundManager?.fadeSound('music', 0, Game.CONSTANTS.FADE_DURATION);
-    this.ui?.showError('Game error occurred. Please restart.');
-}
+
+    /**
+     * Handles animation loop errors
+     */
+    handleAnimationError() {
+        this.gameOver = true;
+        this.soundManager?.fadeSound('music', 0, GameConfig.FADE_DURATION);
+        this.ui?.showError('Game error occurred. Please restart.');
+    }
 
     start() { // this is where the game is actually started. 
         console.log("Game starting...");
@@ -399,8 +390,7 @@ handleAnimationError() {
         requestAnimationFrame(this.animate);
     } 
 
-
-        /**
+    /**
      * Reset all game state properties
      * @param {boolean} [fullReset=true] - If true, also resets event listeners
      */
@@ -440,33 +430,39 @@ handleAnimationError() {
         }
     }
 
-     /**
+    /**
      * Handles absorption between two players/balls
      * @param {Player|Bot} eaterPlayer - The ball doing the absorbing
      * @param {Player|Bot} eatenPlayer - The ball being absorbed
      */
-    // Updated handlePlayerAbsorption method in game.js
     handlePlayerAbsorption(eaterPlayer, eatenPlayer) {
-        // called in gamePhysics.resolveCollision
+        // Skip if either ball is not active
+        if (!eaterPlayer.active || !eatenPlayer.active) {
+            console.log("Skipping absorption - one of the balls is not active");
+            return;
+        }
         
-        // Set the eaten player as inactive
+        // Log detailed absorption information
+        console.log(`ABSORPTION: ${eaterPlayer.name || 'Player'} (size: ${eaterPlayer.radius.toFixed(2)}) absorbing ${eatenPlayer.name || 'Bot'} (size: ${eatenPlayer.radius.toFixed(2)})`);
+        
+        // Set the eaten player as inactive immediately to prevent double absorptions
         eatenPlayer.active = false;
         
-        // Award points to the eater - use your scoring system
-        // Option 1: Keep flat points system from GamePhysics
+        // Award points to the eater
         const Bot = this.Bot;
         if (eaterPlayer === this.player) {
             this.player.addScore(2);
+            console.log(`Player score increased to ${this.player.score}`);
         } else if (Bot && eaterPlayer instanceof Bot) {
             eaterPlayer.addScore(2);
-            }
-        
-        // Option 2: Score based on radius
-        // eaterPlayer.score += Math.floor(eatenPlayer.radius);
+        }
         
         // Merge the balls
         if (typeof eaterPlayer.merge === 'function') {
             eaterPlayer.merge(eatenPlayer);
+            console.log(`Merge complete: ${eaterPlayer.name || 'Player'} new size: ${eaterPlayer.radius.toFixed(2)}`);
+        } else {
+            console.warn("Merge function not found on eater player");
         }
         
         // Force update the leaderboard
@@ -477,9 +473,27 @@ handleAnimationError() {
         
         // Play appropriate sound
         if (eatenPlayer === this.player) {
-            this.soundManager.play('playerLost');
+            console.log("PLAYER WAS EATEN!");
+            try {
+                this.soundManager.play('playerLost');
+            } catch (e) {
+                console.warn("Could not play playerLost sound:", e);
+            }
+            // Show player lost message when player is absorbed
+            this.playerLost = true;
+            if (this.ui) {
+                console.log("Calling showPlayerLostMessage");
+                this.ui.showPlayerLostMessage();
+                console.log("Called showPlayerLostMessage");
+            } else {
+                console.error("UI reference is missing!");
+            }
         } else if (this.soundManager) {
-            this.soundManager.play('merge');
+            try {
+                this.soundManager.play('merge');
+            } catch (e) {
+                console.warn("Could not play merge sound:", e);
+            }
         }
     }
 
@@ -491,6 +505,24 @@ handleAnimationError() {
 
     cleanup() {
         this.resetGameState(true);  // Full reset including event listeners
+    }
+
+    // Add method to change board type
+    changeBoard(boardType) {
+        if (GameConfig.BOARD_TYPES[boardType.toUpperCase()]) {
+            this.boardType = GameConfig.BOARD_TYPES[boardType.toUpperCase()];
+            // Recreate board manager
+            this.boardManager = new BoardManager(this.width, this.height, this.boardType);
+            
+            // Update references
+            this.renderer.boardManager = this.boardManager;
+            this.physics.boardManager = this.boardManager;
+            
+            // Reset game with new board
+            this.restart();
+            return true;
+        }
+        return false;
     }
 } // Close the Game class definition
     

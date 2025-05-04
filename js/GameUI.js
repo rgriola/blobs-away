@@ -19,6 +19,8 @@ class GameUI {
     }
     
     startCountdown(onComplete) {
+        console.log("UI starting countdown from value:", this.game.countdownValue);
+        
         // Create countdown overlay
         const countdownOverlay = document.createElement('div');
         countdownOverlay.className = 'countdown-overlay';
@@ -26,17 +28,30 @@ class GameUI {
         
         // Start countdown
         let countdownValue = this.game.countdownValue;
+        console.log("Initial countdown value:", countdownValue);
+        
         const countdownInterval = setInterval(() => {
+            console.log("Countdown tick:", countdownValue);
+            
             if (countdownValue > 0) {
                 countdownOverlay.textContent = countdownValue;
                 countdownValue--;
             } else {
                 countdownOverlay.textContent = 'GO!';
                 
+                console.log("Countdown reached zero, preparing to call completion callback");
+                
                 // Remove countdown after a short delay
                 setTimeout(() => {
                     countdownOverlay.remove();
-                    if (onComplete) onComplete();
+                    console.log("Overlay removed, calling completion callback");
+                    
+                    if (onComplete && typeof onComplete === 'function') {
+                        onComplete();
+                        console.log("Completion callback executed");
+                    } else {
+                        console.error("No valid completion callback provided!");
+                    }
                 }, 500);
                 
                 clearInterval(countdownInterval);
@@ -165,16 +180,49 @@ class GameUI {
     }
     
     showPlayerLostMessage() {
-        // Create a non-blocking notification
-        const notification = document.createElement('div');
-        notification.className = 'game-notification';
-        notification.textContent = 'You were absorbed! Spectating...';
-        document.querySelector('.game-container').appendChild(notification);
+        console.log("Creating player lost message (new implementation)");
         
-        // Remove the notification after a few seconds
+        // Create a notification with inline styles for maximum visibility
+        const notification = document.createElement('div');
+        
+        // Apply direct styles without relying on CSS classes
+        Object.assign(notification.style, {
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            backgroundColor: '#000000',
+            color: '#FF6B6B',
+            padding: '20px 40px',
+            borderRadius: '8px',
+            border: '3px solid #FF6B6B',
+            fontSize: '28px',
+            fontWeight: 'bold',
+            zIndex: '10000',
+            textAlign: 'center',
+            boxShadow: '0 0 20px rgba(255, 107, 107, 0.8)'
+        });
+        
+        // Set the message
+        notification.textContent = 'YOU WERE ABSORBED!';
+        
+        // Add to document body directly (not through game container)
+        document.body.appendChild(notification);
+        
+        console.log("Notification added:", notification);
+        
+        // Remove after 3 seconds
         setTimeout(() => {
             notification.style.opacity = '0';
-            setTimeout(() => notification.remove(), 500);
+            notification.style.transition = 'opacity 0.5s';
+            setTimeout(() => {
+                try {
+                    document.body.removeChild(notification);
+                    console.log("Notification removed");
+                } catch (e) {
+                    console.warn("Error removing notification:", e);
+                }
+            }, 500);
         }, 3000);
     }
     
@@ -391,6 +439,58 @@ class GameUI {
         if (gameContainer) {
             gameContainer.appendChild(soundControls);
         }
+    }
+
+    // Add error handling method to display errors to the user
+    showError(message) {
+        console.error('Game error:', message);
+        
+        // Create an error notification
+        const errorNotification = document.createElement('div');
+        
+        // Apply direct styles for maximum visibility
+        Object.assign(errorNotification.style, {
+            position: 'fixed',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: 'rgba(220, 53, 69, 0.9)',
+            color: '#ffffff',
+            padding: '15px 25px',
+            borderRadius: '8px',
+            border: '2px solid #ff0000',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            zIndex: '10000',
+            textAlign: 'center',
+            boxShadow: '0 0 15px rgba(220, 53, 69, 0.7)'
+        });
+        
+        // Set the error message
+        errorNotification.textContent = message;
+        
+        // Add restart button
+        const restartButton = document.createElement('button');
+        Object.assign(restartButton.style, {
+            backgroundColor: '#ffffff',
+            color: '#dc3545',
+            border: 'none',
+            borderRadius: '4px',
+            padding: '8px 15px',
+            marginTop: '10px',
+            cursor: 'pointer',
+            fontWeight: 'bold'
+        });
+        restartButton.textContent = 'Restart Game';
+        restartButton.onclick = () => {
+            window.location.reload();
+        };
+        
+        errorNotification.appendChild(document.createElement('br'));
+        errorNotification.appendChild(restartButton);
+        
+        // Add to document body
+        document.body.appendChild(errorNotification);
     }
 }
 

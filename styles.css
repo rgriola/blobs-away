@@ -124,6 +124,12 @@ canvas {
   }
 }
 
+@keyframes notification-pulse {
+  0% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 10px rgba(255, 107, 107, 0.7); }
+  50% { transform: translate(-50%, -50%) scale(1.05); box-shadow: 0 0 20px rgba(255, 107, 107, 0.9); }
+  100% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 10px rgba(255, 107, 107, 0.7); }
+}
+
 /* =============================================
    4. LAYOUT COMPONENTS
 ============================================= */
@@ -190,16 +196,19 @@ canvas {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background-color: rgba(0, 0, 0, 0.41);
-  color: var(--color-light);
+  background-color: rgba(0, 0, 0, 0.8);
+  color: var(--color-warning);
   padding: 15px 30px;
   border-radius: 8px;
+  border: 2px solid var(--color-warning);
   font-size: var(--font-xl);
   font-weight: bold;
-  z-index: 100;
+  z-index: 1000;
   text-align: center;
   opacity: 1;
   transition: opacity 0.5s;
+  animation: notification-pulse 2s infinite;
+  box-shadow: 0 0 15px rgba(255, 107, 107, 0.8);
 }
 
 .player-text {
@@ -444,6 +453,45 @@ canvas {
   border: var(--border-medium);
   width: 150px;
   height: 75px;
+}
+
+/* Game options styling */
+.game-options {
+  margin: 10px 0;
+  width: 100%;
+}
+
+.menu-option {
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.menu-option label {
+  font-size: var(--font-sm);
+  margin-bottom: 3px;
+  color: var(--color-light);
+  font-weight: bold;
+}
+
+.menu-option select {
+  padding: 5px;
+  border-radius: var(--border-radius-small);
+  border: var(--border-medium);
+  background-color: #a5ddfbd5;
+  color: var(--color-primary);
+  font-size: var(--font-xs);
+  width: 120px;
+  text-align: center;
+  box-shadow: var(--shadow-small);
+  cursor: pointer;
+}
+
+.menu-option select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(37, 206, 25, 0.3);
 }
 
 /* =============================================

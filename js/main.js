@@ -1,173 +1,157 @@
 import { Game } from './game.js';
+import { GameConfig } from './GameConfig.js';
+import { LogoAnimation } from './LogoAnimation.js';
 
-class GameInitializer {
-    constructor() {
-        // Cache DOM elements
-        this.playerDialog = document.getElementById('player-dialog');
-        this.playerNameInput = document.getElementById('player-name-input');
-        this.startGameBtn = document.getElementById('start-game-btn');
-        this.gameContainer = document.querySelector('.game-container');
-        this.gameOverDialog = document.getElementById('game-over-dialog');
-        this.playAgainBtn = document.getElementById('play-again-btn');
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize logo animation
+  //  const logoAnim = new LogoAnimation('logoCanvas');
+   const logoAnim = new LogoAnimation('logo-canvas');
+    logoAnim.start();
+    
+    // Get DOM elements
+    const playerDialog = document.getElementById('player-dialog');
+    const gameContainer = document.querySelector('.game-container');
+    const gameCanvas = document.getElementById('gameCanvas');
+    const startButton = document.getElementById('start-game-btn');
+    const nameInput = document.getElementById('player-name-input');
+    const boardSelector = document.getElementById('board-type');
+    const obstacleSelector = document.getElementById('obstacle-set');
+    const restartButton = document.getElementById('play-again-btn');
+    
+    // Game instance
+    let game = null;
+
+    // Check if start button exists, add event listeners
+    if (startButton) {
+        startButton.addEventListener('click', startGame);
+    } else {
+        console.error('Start button not found! Check the ID "start-game-btn" exists in your HTML.');
+        }
+    
+    // Check if restart button exists,
+    if (restartButton) {
+        restartButton.addEventListener('click', restartGame);
+        }
+    
+    // Only populate selectors if they exist
+    if (boardSelector) {
+        populateBoardSelector();
+    } else {
+        console.error('Board selector not found! Check the ID "board-type" exists in your HTML.');
+        }
+
+    if (obstacleSelector) {
+        populateObstacleSelector();
+    } else {
+        console.error('Obstacle selector not found! Check the ID "obstacle-set" exists in your HTML.');
+        }      
+
+    // Add all board types from GameConfig to the selector
+    populateBoardSelector();
+    
+    // Add obstacle sets from GameConfig to the selector
+    populateObstacleSelector();
+    
+    /**
+     * Populate the board type selector with available board types
+     */
+    function populateBoardSelector() {
+        // Clear existing options
+        boardSelector.innerHTML = '';
         
-        // Game canvas settings
-        this.canvasWidth = 800;
-        this.canvasHeight = 600;
+        // Add option for each board type
+        const boardTypes = GameConfig.BOARD_TYPES;
+        for (const [key, value] of Object.entries(boardTypes)) {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = value.charAt(0).toUpperCase() + value.slice(1);
+            boardSelector.appendChild(option);
+        }
         
-        // Initialize the game setup
-        this.init();
+        // Set default selection
+        boardSelector.value = GameConfig.DEFAULT_BOARD_TYPE;
     }
-
-    init() {
-        // Set initial UI state
-        this.setupInitialUI();
-        // Bind event listeners
-        this.setupEventListeners();
-    }
-
-    setupInitialUI() {
-        // Show player dialog
-        this.playerDialog.style.display = 'flex';
-        // Hide game container initially
-        if (this.gameContainer) {
-            this.gameContainer.style.display = 'none';
-        }
-        // Focus on name input
-        this.playerNameInput.focus();
-    }
-
-    setupEventListeners() {
-        // Input validation for player name
-        this.playerNameInput.addEventListener('input', this.handleNameInput.bind(this));
-        // Start game button click
-        this.startGameBtn.addEventListener('click', this.handleStartClick.bind(this));
-        // Enter key to start game
-        this.playerNameInput.addEventListener('keypress', this.handleEnterKey.bind(this));
-    }
-
-    handleNameInput(event) {
-        // Remove non-letter characters and limit length
-        const input = event.target;
-        input.value = input.value.replace(/[^A-Za-z]/g, '').substring(0, 12);
-    }
-
-    handleStartClick() {
-        if (this.validatePlayerName()) {
-            this.startGame();
-        }
-    }
-
-    handleEnterKey(event) {
-        if (event.key === 'Enter' && this.validatePlayerName()) {
-            this.startGame();
-        }
-    }
-
-    validatePlayerName() {
-        const name = this.playerNameInput.value.trim();
-        const validNameRegex = /^[A-Za-z]+$/;
+    
+    /**
+     * Populate the obstacle set selector
+     */
+    function populateObstacleSelector() {
+        // Clear existing options
+        obstacleSelector.innerHTML = '';
         
-        // Allow empty name (will use default) or valid name
-        if (!validNameRegex.test(name) && name !== '') {
-            alert('Please use only letters for your name.');
-            return false;
-        }
-        return true;
-    }
-
-    createGameCanvas() {
-        // Create canvas element if it doesn't exist
-        if (!document.getElementById('gameCanvas')) {
-            const canvas = document.createElement('canvas');
-            canvas.id = 'gameCanvas';
-            canvas.width = this.canvasWidth;
-            canvas.height = this.canvasHeight;
-            this.gameContainer.appendChild(canvas);
-            return canvas;
-        }
-    }
-
-    setupAudio(game) {
-        // Enable audio with user interaction
-        const enableAudio = () => {
-            if (game.soundManager) {
-                game.soundManager.playMusic('game-music', 0.3);
-                // Remove listeners after first interaction
-                ['click', 'keydown', 'touchstart'].forEach(event => 
-                    document.removeEventListener(event, enableAudio));
+        // Add option for each obstacle set
+        if (GameConfig.OBSTACLE_SETS) {
+            for (const setName of Object.keys(GameConfig.OBSTACLE_SETS)) {
+                const option = document.createElement('option');
+                option.value = setName;
+                option.textContent = setName.charAt(0).toUpperCase() + setName.slice(1);
+                obstacleSelector.appendChild(option);
             }
-        };
-
-        // Add listeners for user interaction
-        ['click', 'keydown', 'touchstart'].forEach(event => 
-            document.addEventListener(event, enableAudio));
-    }
-
-    setupPerformanceMonitoring() {
-        const frameHistory = [];
-        const frameHistorySize = 60; // Monitor 60 frames
-        let lastFrameTime = performance.now();
-
-        const checkPerformance = () => {
-            const now = performance.now();
-            const frameDuration = now - lastFrameTime;
-            lastFrameTime = now;
-            
-            // Track frame durations
-            frameHistory.push(frameDuration);
-            if (frameHistory.length > frameHistorySize) {
-                frameHistory.shift();
+        } else {
+            // Fallback options if no obstacle sets defined
+            const fallbackOptions = ['none', 'random'];
+            for (const option of fallbackOptions) {
+                const optElem = document.createElement('option');
+                optElem.value = option;
+                optElem.textContent = option.charAt(0).toUpperCase() + option.slice(1);
+                obstacleSelector.appendChild(optElem);
             }
-            
-            // Calculate and check average FPS
-            if (frameHistory.length === frameHistorySize) {
-                const avgDuration = frameHistory.reduce((sum, val) => sum + val, 0) / frameHistorySize;
-                const avgFps = 1000 / avgDuration;
-                
-                if (avgFps < 45) {
-                    console.warn(`Performance warning: Average FPS: ${avgFps.toFixed(1)}`);
-                }
-            }
-            
-            requestAnimationFrame(checkPerformance);
-        };
-
-        requestAnimationFrame(checkPerformance);
-    }
-
-    startGame() {
-        // Get player name or use default
-        const playerName = this.playerNameInput.value.trim() || 'Player';
-        
-        if (this.gameContainer) {
-            // Show game container
-            this.gameContainer.style.display = 'block';
-            
-            // Add slight delay for transitions
-            setTimeout(() => {
-                this.gameContainer.classList.add('active');
-                document.body.classList.add('game-active');
-                
-                // Setup game canvas
-                this.createGameCanvas();
-                
-                // Initialize game
-                const game = new Game(playerName);
-                window.gameInstance = game;
-                
-                // Setup audio and performance monitoring
-                this.setupAudio(game);
-                this.setupPerformanceMonitoring();
-                
-                // Start the game
-                game.start();
-            }, 100);
         }
         
-        // Hide the player dialog
-        this.playerDialog.style.display = 'none';
+        // Set default selection
+        obstacleSelector.value = GameConfig.DEFAULT_OBSTACLE_SET;
     }
-}
+    
+    /**
+     * Start a new game
+     */
+    function startGame() {
+        // Get player name (use default if empty)
+        const playerName = nameInput.value.trim() || 'Player';
+        
+        // Get selected board type
+        const boardType = boardSelector.value;
+        
+        // Get selected obstacle set
+        const obstacleSet = obstacleSelector.value;
+        
 
-// Initialize game when DOM is ready
-document.addEventListener('DOMContentLoaded', () => new GameInitializer());
+         // Hide player dialog (instead of mainMenu)
+       // const playerDialog = document.getElementById('player-dialog');
+        if (playerDialog) {
+            playerDialog.style.display = 'none';
+            }
+        
+        // Show game container
+        //const gameContainer = document.querySelector('.game-container');
+        if (gameContainer) {
+            gameContainer.style.display = 'block';
+        }
+
+        // Create and start game
+    try {
+        game = new Game(playerName, boardType, obstacleSet);
+        game.start();
+        
+        // Focus canvas for keyboard input
+        if (gameCanvas) {
+            gameCanvas.focus();
+            }
+        
+        console.log("Game started with:", {playerName, boardType, obstacleSet});
+    } catch (error) {
+        console.error("Failed to start game:", error);
+        console.error(error.stack); // Log the full stack trace
+        }
+    }
+    
+    /**
+     * Restart the current game
+     */
+    function restartGame() {
+        if (game) {
+            game.restart();
+        }
+    }
+    
+});

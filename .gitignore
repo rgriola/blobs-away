@@ -1,15 +1,25 @@
 # VS Code workspace files
 *.code-workspace
 
-# Other common files to ignore
-.DS_Store
+# Dependencies
 node_modules/
+package-lock.json
 
 # Logs
 *.log
+logs/
 
 # Editor directories and files
-.idea
-.vscode
+.idea/
+.vscode/
 *.swp
+*.swo
+
+# OS specific
 .DS_Store
+Thumbs.db
+Desktop.ini
+
+# Backup files
+*~
+*.bak

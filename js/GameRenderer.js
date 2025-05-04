@@ -5,91 +5,99 @@ class GameRenderer {
         this.width = game.width;
         this.height = game.height;
         this.boundaryOffset = game.boundaryOffset;
+        this.boardManager = game.boardManager;
+        this.obstacleManager = game.obstacleManager;
     }
 
     // Clear the canvas
     clear() {
-        this.ctx.clearRect(0, 0, this.width, this.height);
+        // Draw a stylish gradient background
+        const gradient = this.ctx.createLinearGradient(0, 0, 0, this.height);
+        gradient.addColorStop(0, '#1e3c72');
+        gradient.addColorStop(1, '#2a5298');
+        
+        this.ctx.fillStyle = gradient;
+        this.ctx.fillRect(0, 0, this.width, this.height);
     }
 
-    // Draw the boundary
+    // Draw the boundary using BoardManager
     drawBoundary() {
-        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-        this.ctx.lineWidth = 2;
-        
-        this.ctx.beginPath();
-        this.ctx.moveTo(this.boundaryOffset, this.boundaryOffset);
-        this.ctx.lineTo(this.width - this.boundaryOffset, this.boundaryOffset);
-        this.ctx.lineTo(this.width - this.boundaryOffset, this.height - this.boundaryOffset - 50);
-        this.ctx.lineTo(this.boundaryOffset, this.height - this.boundaryOffset - 50);
-        this.ctx.closePath();
-        this.ctx.stroke();
+        if (this.boardManager) {
+            this.boardManager.drawBoundary(this.ctx);
+        } else {
+            // Fallback to original rectangular boundary if no BoardManager
+            this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            this.ctx.lineWidth = 2;
+            
+            this.ctx.beginPath();
+            this.ctx.moveTo(this.boundaryOffset, this.boundaryOffset);
+            this.ctx.lineTo(this.width - this.boundaryOffset, this.boundaryOffset);
+            this.ctx.lineTo(this.width - this.boundaryOffset, this.height - this.boundaryOffset - 50);
+            this.ctx.lineTo(this.boundaryOffset, this.height - this.boundaryOffset - 50);
+            this.ctx.closePath();
+            this.ctx.stroke();
+        }
     }
 
     // Render all game objects with interpolation
     render(interpolation) {
-             // Clear the entire canvas first
-             this.clear();
+        // Clear the entire canvas first
+        this.clear();
         
-             // Draw game boundary
-             this.drawBoundary();
+        // Draw game boundary
+        this.drawBoundary();
         
-         // Draw all active balls with interpolation
-         for (const ball of this.game.balls) {
-            if (ball && ball.active) {
-                // Use ball's own drawAt method instead of drawBall
-                const x = ball.prevX + (ball.x - ball.prevX) * interpolation;
-                const y = ball.prevY + (ball.y - ball.prevY) * interpolation;
-                ball.drawAt(this.ctx, x, y);
-            }
-        }
+        // Render balls
+        this.renderBalls(interpolation);
         
-           // Draw particles if any
-           if (this.game.particleManager) {
+        // Draw particles if any
+        if (this.game.particleManager) {
             this.renderParticles();
         }
     }
 
-
     // Render static scene (used during countdown)
     renderStatic() {
-        // Defensively check if balls array exists
-        if (!this.game.balls || !this.game.balls.length) {
-            console.warn("No balls to render");
-            return;
-        }
-        
-        for (let i = 0; i < this.game.balls.length; i++) {
-            const ball = this.game.balls[i];
-            if (ball && ball.active) {
+        // Used for rendering balls without interpolation
+        this.game.balls.forEach(ball => {
+            if (ball.active) {
                 ball.draw(this.ctx);
             }
-        }
+        });
+    }
+
+    // Render balls with interpolation
+    renderBalls(interpolation) {
+        // Render all balls with interpolation for smooth movement
+        this.game.balls.forEach(ball => {
+            if (!ball.active) return;
+            
+            // Calculate interpolated position
+            const x = ball.prevX + (ball.x - ball.prevX) * interpolation;
+            const y = ball.prevY + (ball.y - ball.prevY) * interpolation;
+            
+            // Render at interpolated position
+            ball.drawAt(this.ctx, x, y);
+        });
     }
 
     // Render particles
     renderParticles() {
-        // Defensively check if particlePool exists
-        if (!this.game.particlePool) {
-            console.warn("Particle pool is undefined");
-            return;
-        }
+        // Render active particles
+        this.game.particlePool.forEach(particle => {
+            if (!particle.active) return;
+            
+            this.ctx.globalAlpha = particle.life / particle.maxLife;
+            this.ctx.fillStyle = particle.color;
+            this.ctx.fillRect(
+                particle.x - particle.size / 2, 
+                particle.y - particle.size / 2, 
+                particle.size, 
+                particle.size
+            );
+        });
         
-        for (let i = 0; i < this.game.particlePool.length; i++) {
-            const particle = this.game.particlePool[i];
-            if (particle && particle.active) {
-                // Calculate opacity based on remaining life
-                const opacity = particle.life / particle.maxLife;
-                
-                this.ctx.globalAlpha = opacity;
-                this.ctx.fillStyle = particle.color;
-                this.ctx.beginPath();
-                this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-                this.ctx.fill();
-            }
-        }
-        
-        // Reset global alpha
+        // Reset alpha
         this.ctx.globalAlpha = 1;
     }
 }
