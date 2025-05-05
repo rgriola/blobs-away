@@ -115,7 +115,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Get selected obstacle set
         const obstacleSet = obstacleSelector.value;
         
-
          // Hide player dialog (instead of mainMenu)
        // const playerDialog = document.getElementById('player-dialog');
         if (playerDialog) {

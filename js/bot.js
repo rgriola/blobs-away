@@ -96,6 +96,7 @@ class Bot extends Ball {
             ctx.lineWidth = 2;
             ctx.strokeText(this.name, this.x, this.y - this.radius - 10);
             ctx.fillText(this.name, this.x, this.y - this.radius - 10);
+            //ctx.fillText("ROD BOT", this.x, this.y - this.radius - 10);
         }
     }
 }

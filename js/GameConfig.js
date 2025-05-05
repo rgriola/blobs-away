@@ -15,7 +15,7 @@ export const GameConfig = {
         RECTANGLE: 'rectangle',
         CIRCLE: 'circle',
         OVAL: 'oval',
-        MAZE: 'maze'
+       // MAZE: 'maze'
     },
     DEFAULT_BOARD_TYPE: 'rectangle',
     
@@ -25,11 +25,13 @@ export const GameConfig = {
             bottomExtraOffset: 50  // Additional offset for the bottom boundary
         },
         circle: {
-            radius: 300  // Radius of the circular board
+            //radius: 375  // Radius of the circular board
+            radiusX: 375,
+            radiusY: 375
         },
         oval: {
-            radiusX: 350,  // Horizontal radius
-            radiusY: 250   // Vertical radius
+            radiusX: 600,  // Horizontal radius
+            radiusY: 375   // Vertical radius
         },
         maze: {
             pathWidth: 100  // Width of the pathways
@@ -184,7 +186,7 @@ export const GameConfig = {
                 y: 400,
                 width: 30,
                 height: 500,
-                color: 'rgba(150, 150, 150, 0.7)'
+                color: 'rgba(242, 116, 116, 0.7)'
             },
             {
                 type: 'rectangle',
@@ -192,7 +194,7 @@ export const GameConfig = {
                 y: 400,
                 width: 30,
                 height: 500,
-                color: 'rgba(150, 150, 150, 0.7)'
+                color: 'rgba(104, 220, 98, 0.7)'
             },
             {
                 type: 'rectangle',
@@ -200,7 +202,7 @@ export const GameConfig = {
                 y: 400,
                 width: 30,
                 height: 500,
-                color: 'rgba(150, 150, 150, 0.7)'
+                color: 'rgba(244, 207, 74, 0.7)'
             },
             
             // Horizontal walls with gaps
@@ -210,7 +212,7 @@ export const GameConfig = {
                 y: 150,
                 width: 300,
                 height: 30,
-                color: 'rgba(150, 150, 150, 0.7)'
+                color: 'rgba(14, 143, 93, 0.7)'
             },
             {
                 type: 'rectangle',
@@ -218,7 +220,7 @@ export const GameConfig = {
                 y: 150,
                 width: 300,
                 height: 30,
-                color: 'rgba(150, 150, 150, 0.7)'
+                color: 'rgba(104, 1, 107, 0.86)'
             },
             {
                 type: 'rectangle',
@@ -226,7 +228,7 @@ export const GameConfig = {
                 y: 150,
                 width: 300,
                 height: 30,
-                color: 'rgba(150, 150, 150, 0.7)'
+                color: 'rgba(214, 18, 106, 0.7)'
             },
             {
                 type: 'rectangle',
@@ -234,7 +236,7 @@ export const GameConfig = {
                 y: 650,
                 width: 300,
                 height: 30,
-                color: 'rgba(150, 150, 150, 0.7)'
+                color: 'rgba(4, 97, 236, 0.7)'
             },
             {
                 type: 'rectangle',
@@ -242,7 +244,7 @@ export const GameConfig = {
                 y: 650,
                 width: 300,
                 height: 30,
-                color: 'rgba(150, 150, 150, 0.7)'
+                color: 'rgb(75, 167, 0)'
             },
             {
                 type: 'rectangle',

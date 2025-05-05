@@ -175,22 +175,23 @@ class Ball {
 
     // Make sure your Ball class update method looks something like this:
     update(deltaTime) {
-    // If not active, don't update
-    if (!this.active) return;
+        // If not active, don't update
+        if (!this.active) return;
 
-      // Store previous position for interpolation
-      this.prevX = this.x;
-      this.prevY = this.y;
-    
-    // Update position based on velocity
-    this.x += this.velocityX * this.speed;
-    this.y += this.velocityY * this.speed;
+        // Store previous position for interpolation
+        this.prevX = this.x;
+        this.prevY = this.y;
+        
+        // Update position based on velocity
+        this.x += this.velocityX * this.speed;
+        this.y += this.velocityY * this.speed;
 
-    // Validate position after movement
-    this.validatePosition();
+        // Validate position after movement
+        this.validatePosition();
     
-    // Do not handle boundary collisions here - GamePhysics will handle that
-}
+        // Do not handle boundary collisions here - 
+        // GamePhysics will handle that
+    }
 
     // Add compatibility method for Game class
     handleBoundaryCollision() {

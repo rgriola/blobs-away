@@ -31,19 +31,21 @@ export class BoardManager {
      */
     setObstacleManager(obstacleManager) {
         this.obstacleManager = obstacleManager;
-    }
+        }
 
     /**
      * Draw the boundary based on board type
      * @param {CanvasRenderingContext2D} ctx - Canvas rendering context
      */
     drawBoundary(ctx) {
+        // this draws the boundary graphic 
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
         ctx.lineWidth = 2;
         
         switch (this.boardType) {
             case GameConfig.BOARD_TYPES.CIRCLE:
-                this.drawCircleBoundary(ctx);
+                //this.drawCircleBoundary(ctx);
+                this.drawOvalBoundary(ctx);
                 break;
             case GameConfig.BOARD_TYPES.OVAL:
                 this.drawOvalBoundary(ctx);
@@ -108,12 +110,13 @@ export class BoardManager {
      * @returns {boolean} True if collision occurred
      */
     isCollidingWithBoundary(ball) {
-        // First check basic board boundary
+        // Sets the Type of Boundry based on the parameters 
         let boundaryCollision = false;
         
         switch (this.boardType) {
             case GameConfig.BOARD_TYPES.CIRCLE:
-                boundaryCollision = this.isCollidingWithCircle(ball);
+                //boundaryCollision = this.isCollidingWithCircle(ball);
+                boundaryCollision = this.isCollidingWithOval(ball);
                 break;
             case GameConfig.BOARD_TYPES.OVAL:
                 boundaryCollision = this.isCollidingWithOval(ball);
@@ -159,28 +162,50 @@ export class BoardManager {
         
         return distance + ball.radius > this.settings.radius;
     }
-    
+       
     /**
      * Check for collision with oval boundary
      * @param {Ball} ball - Ball to check
      * @returns {boolean} True if collision occurred
      */
     isCollidingWithOval(ball) {
-        // Transform coordinates to make collision detection easier
         const dx = ball.x - this.centerX;
         const dy = ball.y - this.centerY;
         
         // Scale the coordinates
-        const scaledX = dx / this.settings.radiusX;
-        const scaledY = dy / this.settings.radiusY;
+        const radiusX = this.settings.radiusX;
+        const radiusY = this.settings.radiusY;
+        const scaledX = dx / radiusX;
+        const scaledY = dy / radiusY;
         
         // Calculate the distance in the scaled space
         const scaledDistance = Math.sqrt(scaledX * scaledX + scaledY * scaledY);
         
-        // If the scaled distance is greater than 1, we're outside the ellipse
-        return scaledDistance > 1 - ball.radius / Math.min(this.settings.radiusX, this.settings.radiusY);
+        if (scaledDistance <= 0) {
+            return false; // Ball is at center, no collision
+        }
+        
+        // Calculate the direction vector to get the effective radius in that direction
+        const nx = scaledX / scaledDistance;
+        const ny = scaledY / scaledDistance;
+        
+        // Convert back to world space to get the actual direction vector
+        const worldNx = nx * radiusX;
+        const worldNy = ny * radiusY;
+        
+        // Get the length of this vector to normalize it properly
+        const worldLength = Math.sqrt(worldNx * worldNx + worldNy * worldNy);
+        
+        // Calculate the effective radius in the direction of travel
+        // This accounts for the oval's curvature in the specific direction
+        const effectiveRadius = ball.radius / worldLength;
+        
+        // Check if we're colliding
+        return scaledDistance + effectiveRadius > 1.0;
     }
-    
+
+
+    //// Handles the actual ball reactions. 
     /**
      * Handle collision with boundary, update ball position and velocity
      * @param {Ball} ball - Ball that collided with boundary
@@ -191,19 +216,20 @@ export class BoardManager {
         // First try handling obstacle collision if we have an obstacle manager
         if (this.obstacleManager && this.obstacleManager.handleObstacleCollision(ball, bounceMultiplier)) {
             return true;
-        }
+            }
         
         // Then handle the basic board boundary if no obstacle collision
         switch (this.boardType) {
             case GameConfig.BOARD_TYPES.CIRCLE:
-                return this.handleCircleCollision(ball, bounceMultiplier);
+                //return this.handleCircleCollision(ball, bounceMultiplier);
+                return this.handleOvalCollision(ball, bounceMultiplier);
             case GameConfig.BOARD_TYPES.OVAL:
                 return this.handleOvalCollision(ball, bounceMultiplier);
             case GameConfig.BOARD_TYPES.RECTANGLE:
             default:
                 return this.handleRectangleCollision(ball, bounceMultiplier);
+            }
         }
-    }
     
     /**
      * Handle collision with rectangular boundary
@@ -299,30 +325,34 @@ export class BoardManager {
         // Calculate the distance in the scaled space
         const scaledDistance = Math.sqrt(scaledX * scaledX + scaledY * scaledY);
         
-        // Collision detection
-        if (scaledDistance > 1 - ball.radius / Math.min(radiusX, radiusY)) {
-            // Calculate the normal in the scaled space
-            const nx = scaledX / scaledDistance;
-            const ny = scaledY / scaledDistance;
-            
-            // Transform back to the original space
-            const realNx = nx * radiusX / Math.sqrt(nx*nx*radiusX*radiusX + ny*ny*radiusY*radiusY);
-            const realNy = ny * radiusY / Math.sqrt(nx*nx*radiusX*radiusX + ny*ny*radiusY*radiusY);
-            
-            // Normalize
-            const normalLength = Math.sqrt(realNx * realNx + realNy * realNy);
-            const normalizedNx = realNx / normalLength;
-            const normalizedNy = realNy / normalLength;
-            
-            // Calculate penetration
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            const penetration = (distance + ball.radius) - Math.min(radiusX, radiusY);
+        if (scaledDistance <= 0) {
+            return false; // Ball is at center, no collision
+        }
+        
+        // Calculate the normalized direction in scaled space
+        const nx = scaledX / scaledDistance;
+        const ny = scaledY / scaledDistance;
+        
+        // Convert back to world space to get the proper normal vector
+        const worldNx = nx * radiusX;
+        const worldNy = ny * radiusY;
+        
+        // Get the length of this vector to normalize it properly
+        const worldLength = Math.sqrt(worldNx * worldNx + worldNy * worldNy);
+        const normalizedNx = worldNx / worldLength;
+        const normalizedNy = worldNy / worldLength;
+        
+        // Calculate the effective radius in the collision direction
+        const effectiveRadius = ball.radius / worldLength;
+        
+        // Check if we're colliding
+        if (scaledDistance + effectiveRadius > 1.0) {
+            // Calculate penetration depth
+            const penetrationDepth = ((scaledDistance + effectiveRadius) - 1.0) * worldLength;
             
             // Move ball back to boundary
-            if (penetration > 0) {
-                ball.x -= normalizedNx * penetration;
-                ball.y -= normalizedNy * penetration;
-            }
+            ball.x -= normalizedNx * penetrationDepth;
+            ball.y -= normalizedNy * penetrationDepth;
             
             // Calculate dot product of velocity with normal
             const dotProduct = ball.velocityX * normalizedNx + ball.velocityY * normalizedNy;
@@ -348,7 +378,8 @@ export class BoardManager {
         
         switch (this.boardType) {
             case GameConfig.BOARD_TYPES.CIRCLE:
-                position = this.getRandomCirclePosition(radius);
+                //position = this.getRandomCirclePosition(radius);
+                position = this.getRandomOvalPosition(radius);
                 break;
             case GameConfig.BOARD_TYPES.OVAL:
                 position = this.getRandomOvalPosition(radius);

@@ -21,6 +21,8 @@ class GameRenderer {
     }
 
     // Draw the boundary using BoardManager
+    // thhis is initialized in the game constructor
+    // and is used to draw the game boundary
     drawBoundary() {
         if (this.boardManager) {
             this.boardManager.drawBoundary(this.ctx);

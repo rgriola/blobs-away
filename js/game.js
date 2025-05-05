@@ -239,8 +239,8 @@ class Game {
     getColor() {
         // Using the helper function from GameConfig
         const color = getRandomBallColor(this.usedColors);
-        this.usedColors.push(color);
-        return color;
+        this.usedColors.push(color); // this returns the length of the array
+        return color; 
     }
 
     /**
